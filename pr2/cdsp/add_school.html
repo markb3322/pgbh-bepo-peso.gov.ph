@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>School Management | BEPO-PESO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #f7f9fc;
+  --border: #e2e8f0;
+  --text: #0d1b2e;
+  --text2: #4a5a6e;
+  --muted: #8a97a8;
+  --accent: #0f766e;
+  --accent-dark: #0d5f59;
+  --accent-light: #e6f7f5;
+  --red: #dc2626;
+  --red-bg: #fdecea;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 24px rgba(13,27,46,0.07);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+.main { padding: 28px 32px 40px; max-width: 1000px; margin: 0 auto; animation: fadeUp 0.4s ease both; width: 100%; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.page-header h2 { font-size: 22px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+
+.btn { display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.14s ease; font-family: var(--font); text-decoration: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-dark); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface2); }
+.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+.btn-danger:hover { background: #fce4e4; }
+
+.filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-bar label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.filter-bar input { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); outline: none; background: var(--surface); min-width: 250px; }
+.filter-bar input:focus { border-color: var(--accent); }
+.filter-bar .badge-count { font-size: 12px; color: var(--accent); background: var(--accent-light); padding: 5px 12px; border-radius: 20px; font-weight: 600; margin-left: auto; }
+
+.form-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.form-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.form-group input { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); outline: none; background: var(--surface); }
+.form-group input:focus { border-color: var(--accent); }
+.form-group .required::after { content: ' *'; color: var(--red); }
+.form-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; }
+
+.table-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead { background: var(--surface2); border-bottom: 2px solid var(--border); }
+th { padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+tbody tr:hover { background: var(--accent-light); }
+.td-actions { display: flex; gap: 6px; }
+
+.empty-state { text-align: center; padding: 40px; color: var(--muted); }
+
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast { background: #0d1b2e; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.2); animation: slideIn 0.25s ease; display: flex; align-items: center; gap: 8px; pointer-events: all; }
+.toast.success .toast-icon { color: #4ade80; }
+.toast.error .toast-icon { color: #f87171; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (max-width: 768px) {
+  .main { padding: 16px 14px 32px; }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+  <div class="page-header">
+    <h2>🏫 School Management</h2>
+    <button class="btn btn-primary" id="toggleFormBtn">+ Add New School</button>
+  </div>
+
+  <div class="form-card" id="schoolForm" style="display: none;">
+    <div class="form-title">📝 <span id="formTitle">Add New School</span></div>
+    <input type="hidden" id="schoolId" />
+    <div class="form-group">
+      <label class="required">School Name</label>
+      <input type="text" id="schoolName" placeholder="Enter school name" />
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" id="cancelFormBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveSchoolBtn">💾 Save School</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label>🔍 Search:</label>
+    <input type="text" id="filterSearch" placeholder="Search school name..." />
+    <span class="badge-count" id="countBadge">0 schools</span>
+  </div>
+
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>School Name</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="3" class="empty-state">Loading schools...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="navbar.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const SUPABASE_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let allSchools = [];
+  let currentEditId = null;
+
+  function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'success');
+    toast.innerHTML = '<span class="toast-icon">' + (type === 'error' ? '✕' : '✓') + '</span><span>' + message + '</span>';
+    container.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  async function loadSchools() {
+    try {
+      var result = await sb.from('schools').select('*').order('school_name', { ascending: true });
+      if (result.error) {
+        document.getElementById('tableBody').innerHTML = '<tr><td colspan="3" class="empty-state">Error: ' + esc(result.error.message) + '</td></tr>';
+        return;
+      }
+      allSchools = result.data || [];
+      applyFilters();
+    } catch (err) {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="3" class="empty-state">Failed to load schools</td></tr>';
+    }
+  }
+
+  function applyFilters() {
+    var searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+    var filtered = allSchools.slice();
+    if (searchFilter) {
+      filtered = filtered.filter(function(s) { 
+        return (s.school_name || '').toLowerCase().indexOf(searchFilter) !== -1;
+      });
+    }
+    renderTable(filtered);
+    document.getElementById('countBadge').textContent = filtered.length + ' school' + (filtered.length !== 1 ? 's' : '');
+  }
+
+  function renderTable(schools) {
+    var tbody = document.getElementById('tableBody');
+    if (!schools || schools.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="empty-state">📭 No schools found. Click "+ Add New School" to add one.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = schools.map(function(school, i) {
+      return '<tr>' +
+        '<td>' + (i + 1) + '</td>' +
+        '<td><strong>' + esc(school.school_name) + '</strong></td>' +
+        '<td class="td-actions">' +
+          '<button class="btn btn-secondary btn-sm" data-action="edit" data-id="' + school.id + '">✏️ Edit</button>' +
+          '<button class="btn btn-danger btn-sm" data-action="delete" data-id="' + school.id + '">🗑️ Delete</button>' +
+        '</td></tr>';
+    }).join('');
+    tbody.querySelectorAll('[data-action="edit"]').forEach(function(btn) {
+      btn.addEventListener('click', function() { editSchool(this.dataset.id); });
+    });
+    tbody.querySelectorAll('[data-action="delete"]').forEach(function(btn) {
+      btn.addEventListener('click', function() { deleteSchool(this.dataset.id); });
+    });
+  }
+
+  function editSchool(id) {
+    var school = allSchools.find(function(s) { return s.id === id; });
+    if (!school) return;
+    currentEditId = id;
+    document.getElementById('schoolId').value = school.id;
+    document.getElementById('schoolName').value = school.school_name;
+    document.getElementById('formTitle').textContent = 'Edit School';
+    document.getElementById('schoolForm').style.display = 'block';
+    document.getElementById('toggleFormBtn').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deleteSchool(id) {
+    if (!confirm('Delete this school?')) return;
+    try {
+      var result = await sb.from('schools').delete().eq('id', id);
+      if (result.error) { showToast('Delete failed: ' + result.error.message, 'error'); return; }
+      allSchools = allSchools.filter(function(s) { return s.id !== id; });
+      applyFilters();
+      showToast('School deleted ✓');
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  }
+
+  async function saveSchool() {
+    var name = document.getElementById('schoolName').value.trim();
+    if (!name) { showToast('Please enter school name', 'error'); return; }
+    var payload = { school_name: name };
+    try {
+      var result;
+      if (currentEditId) {
+        result = await sb.from('schools').update(payload).eq('id', currentEditId).select();
+        if (result.error) { showToast('Update failed: ' + result.error.message, 'error'); return; }
+        var idx = allSchools.findIndex(function(s) { return s.id === currentEditId; });
+        if (idx !== -1 && result.data && result.data[0]) allSchools[idx] = result.data[0];
+        showToast('School updated ✓');
+      } else {
+        result = await sb.from('schools').insert([payload]).select();
+        if (result.error) { showToast('Insert failed: ' + result.error.message, 'error'); return; }
+        if (result.data && result.data[0]) allSchools.unshift(result.data[0]);
+        showToast('School added ✓');
+      }
+      resetForm();
+      applyFilters();
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  }
+
+  function resetForm() {
+    currentEditId = null;
+    document.getElementById('schoolId').value = '';
+    document.getElementById('schoolName').value = '';
+    document.getElementById('formTitle').textContent = 'Add New School';
+    document.getElementById('schoolForm').style.display = 'none';
+    document.getElementById('toggleFormBtn').style.display = 'inline-flex';
+  }
+
+  function init() {
+    // Use CDSP Navbar instead of PMS Navbar
+    if (typeof window.renderCDSPNavbar === 'function') {
+      window.renderCDSPNavbar();
+    }
+
+    document.getElementById('toggleFormBtn').addEventListener('click', function() {
+      resetForm();
+      document.getElementById('schoolForm').style.display = 'block';
+      document.getElementById('toggleFormBtn').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.getElementById('cancelFormBtn').addEventListener('click', resetForm);
+    document.getElementById('saveSchoolBtn').addEventListener('click', saveSchool);
+    document.getElementById('filterSearch').addEventListener('input', applyFilters);
+    loadSchools();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>Dashboard | BEPO-PESO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text2: #475569;
+  --muted: #94a3b8;
+  --accent: #1a56db;
+  --accent-dark: #1345b7;
+  --accent-light: #eff6ff;
+  --green: #059669;
+  --green-bg: #ecfdf5;
+  --blue: #2563eb;
+  --blue-bg: #eff6ff;
+  --amber: #d97706;
+  --amber-bg: #fffbeb;
+  --purple: #7c3aed;
+  --purple-bg: #f5f3ff;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+  --display: 'Playfair Display', Georgia, serif;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+.main { padding: 32px 32px 48px; max-width: 1100px; margin: 0 auto; animation: fadeUp 0.5s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Logo & Title */
+.brand-section { text-align: center; margin-bottom: 32px; }
+.brand-logo { width: 80px; height: 80px; border-radius: 20px; object-fit: cover; margin: 0 auto 14px; display: block; border: 2px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.brand-title { font-family: var(--display); font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+.brand-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; letter-spacing: 0.3px; }
+
+/* Greeting Section */
+.greeting-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+.greeting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.greeting-text h2 {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+.greeting-text h2 .wave {
+  display: inline-block;
+  animation: wave 2s ease infinite;
+}
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  50% { transform: rotate(10deg); }
+  75% { transform: rotate(-5deg); }
+}
+.greeting-time-badge {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-light);
+  padding: 6px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.greeting-date {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.greeting-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 12px;
+}
+.greeting-name span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Quotes Section */
+.quotes-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.quote-card {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  position: relative;
+}
+.quote-card::before {
+  content: '"';
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-family: var(--display);
+  font-size: 32px;
+  color: var(--accent);
+  opacity: 0.3;
+  line-height: 1;
+}
+.quote-text {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.6;
+  font-style: italic;
+  padding-left: 20px;
+}
+.quote-author {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 8px;
+  padding-left: 20px;
+  font-weight: 500;
+}
+
+/* Stats Grid */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border-radius: var(--radius); padding: 24px 20px; text-align: center; border: 1px solid var(--border); box-shadow: var(--shadow); transition: all 0.2s; position: relative; overflow: hidden; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.stat-card.total::before { background: var(--accent); }
+.stat-card.items::before { background: var(--green); }
+.stat-card.events::before { background: var(--amber); }
+.stat-card.categories::before { background: var(--purple); }
+
+.stat-icon { font-size: 28px; margin-bottom: 8px; }
+.stat-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.stat-value { font-size: 32px; font-weight: 700; color: var(--text); font-family: var(--mono); line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Record Card */
+.record-card { background: var(--surface); border-radius: var(--radius); padding: 28px 24px; border: 1px solid var(--border); box-shadow: var(--shadow); text-align: center; }
+.record-card h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.record-number { font-size: 56px; font-weight: 700; color: var(--accent); font-family: var(--mono); line-height: 1; }
+.record-label { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.footer-note { text-align: center; margin-top: 28px; font-size: 11px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.2px; }
+
+@media (max-width: 768px) {
+  .main { padding: 20px 16px 40px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .quotes-section { grid-template-columns: 1fr; }
+  .brand-logo { width: 60px; height: 60px; }
+  .brand-title { font-size: 22px; }
+  .greeting-text h2 { font-size: 22px; }
+  .stat-value { font-size: 24px; }
+  .record-number { font-size: 42px; }
+}
+
+@media (max-width: 500px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+
+  <!-- Brand Section -->
+  <div class="brand-section">
+    <img src="image/bepo.png" alt="BEPO-PESO Logo" class="brand-logo" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%231a56db%22><path d=%22M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5%22/></svg>'" />
+    <div class="brand-title">Procurement Data System</div>
+    <div class="brand-subtitle">BEPO-PESO · Province of Bohol</div>
+  </div>
+
+  <!-- Greeting Section -->
+  <div class="greeting-section">
+    <div class="greeting-header">
+      <div class="greeting-text">
+        <div class="greeting-date" id="greetingDate"></div>
+        <h2><span class="wave">👋</span> <span id="greetingTime">Good Morning</span>!</h2>
+        <div class="greeting-name">Welcome back, <span id="greetingName">Loading...</span></div>
+      </div>
+      <div class="greeting-time-badge" id="currentTime">🕐 --:--</div>
+    </div>
+
+    <!-- Quotes -->
+    <div class="quotes-section">
+      <div class="quote-card">
+        <div class="quote-text">Success is not the key to happiness. Happiness is the key to success. If you love what you are doing, you will be successful.</div>
+        <div class="quote-author">— Albert Schweitzer</div>
+      </div>
+      <div class="quote-card">
+        <div class="quote-text">The only way to do great work is to love what you do. Stay hungry, stay foolish, and never settle for less than you deserve.</div>
+        <div class="quote-author">— Steve Jobs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-icon">💰</div>
+      <div class="stat-label">Total Cost</div>
+      <div class="stat-value" id="statTotalCost">₱0</div>
+      <div class="stat-sub">Grand Total</div>
+    </div>
+    <div class="stat-card items">
+      <div class="stat-icon">📦</div>
+      <div class="stat-label">Items</div>
+      <div class="stat-value" id="statItems">0</div>
+      <div class="stat-sub">Total Items</div>
+    </div>
+    <div class="stat-card events">
+      <div class="stat-icon">📅</div>
+      <div class="stat-label">Events</div>
+      <div class="stat-value" id="statEvents">0</div>
+      <div class="stat-sub">Total Events</div>
+    </div>
+    <div class="stat-card categories">
+      <div class="stat-icon">📂</div>
+      <div class="stat-label">Categories</div>
+      <div class="stat-value" id="statCategories">0</div>
+      <div class="stat-sub">Active Categories</div>
+    </div>
+  </div>
+
+  <!-- Total Records Card -->
+  <div class="record-card">
+    <h3>📊 Total Procurement Records</h3>
+    <div class="record-number" id="recordTotal">0</div>
+    <div class="record-label">Records in Database</div>
+  </div>
+
+  <div class="footer-note">&copy; 2026 BEPO-PESO · Procurement Data System · Province of Bohol</div>
+
+</main>
+
+<script src="navbar.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+
+  // Initialize navbar if available
+  if (window.renderPMSNavbar) {
+    window.renderPMSNavbar();
+  }
+
+  const SUPABASE_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let allRecords = [];
+  let allItems = [];
+  let allEvents = [];
+  let allCategories = [];
+
+  // ============================================
+  // PHILIPPINES TIMEZONE (UTC+8)
+  // ============================================
+  function getPHTime() {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + (3600000 * 8));
+  }
+
+  function updateGreeting() {
+    const phNow = getPHTime();
+    const hour = phNow.getHours();
+    let greeting;
+
+    if (hour >= 5 && hour < 12) {
+      greeting = 'Good Morning';
+    } else if (hour >= 12 && hour < 17) {
+      greeting = 'Good Afternoon';
+    } else if (hour >= 17 && hour < 20) {
+      greeting = 'Good Evening';
+    } else {
+      greeting = 'Good Evening';
+    }
+
+    document.getElementById('greetingTime').textContent = greeting;
+
+    const timeStr = phNow.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    document.getElementById('currentTime').textContent = '🕐 ' + timeStr + ' PHT';
+
+    const options = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    document.getElementById('greetingDate').textContent = phNow.toLocaleDateString('en-US', options);
+  }
+
+  updateGreeting();
+  setInterval(updateGreeting, 60000);
+
+  // ============================================
+  // SESSION / USER INFO - USING FULLNAME ONLY
+  // ============================================
+  async function loadUserProfile() {
+    let userId = null;
+
+    // Try multiple sources to get user ID
+    try {
+      // Method 1: Check URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUserId = urlParams.get('user_id');
+      if (urlUserId) {
+        userId = urlUserId;
+        sessionStorage.setItem('bepo_user_id', userId);
+      }
+    } catch(e) {}
+
+    // Method 2: Check sessionStorage
+    if (!userId) {
+      userId = sessionStorage.getItem('bepo_user_id') || 
+               localStorage.getItem('bepo_user_id') ||
+               sessionStorage.getItem('user_id');
+    }
+
+    // Method 3: Try Supabase auth session
+    if (!userId) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          userId = session.user.id;
+          sessionStorage.setItem('bepo_user_id', userId);
+        }
+      } catch(e) {}
+    }
+
+    // Method 4: Check localStorage supabase_session
+    if (!userId) {
+      try {
+        const supabaseSession = localStorage.getItem('supabase_session');
+        if (supabaseSession) {
+          const session = JSON.parse(supabaseSession);
+          userId = session.user?.id;
+          if (userId) {
+            sessionStorage.setItem('bepo_user_id', userId);
+          }
+        }
+      } catch(e) {}
+    }
+
+    // If we have userId, fetch the FULLNAME from members table
+    if (userId) {
+      await fetchMemberFullname(userId);
+    } else {
+      // No userId, try to get from navbar session
+      setTimeout(async () => {
+        const navUserId = sessionStorage.getItem('bepo_user_id');
+        if (navUserId) {
+          await fetchMemberFullname(navUserId);
+        } else {
+          document.getElementById('greetingName').textContent = 'User';
+        }
+      }, 500);
+    }
+  }
+
+  async function fetchMemberFullname(userId) {
+    try {
+      // Method 1: Query members table by user_id
+      let { data, error } = await supabase
+        .from('members')
+        .select('fullname')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // If found by user_id
+      if (!error && data && data.fullname) {
+        updateGreetingFullname(data.fullname);
+        return;
+      }
+
+      // Method 2: Try by id field
+      const { data: dataById, error: errorById } = await supabase
+        .from('members')
+        .select('fullname')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!errorById && dataById && dataById.fullname) {
+        updateGreetingFullname(dataById.fullname);
+        return;
+      }
+
+      // Method 3: Get all members and find by matching email or id
+      const { data: allMembers, error: allError } = await supabase
+        .from('members')
+        .select('fullname, user_id, id, email');
+
+      if (!allError && allMembers && allMembers.length > 0) {
+        // Try to find by user_id
+        let member = allMembers.find(m => m.user_id === userId);
+        
+        // If not found, try by id
+        if (!member) {
+          member = allMembers.find(m => String(m.id) === String(userId));
+        }
+        
+        // If still not found, try by email
+        if (!member) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userEmail = session?.user?.email;
+          if (userEmail) {
+            member = allMembers.find(m => m.email === userEmail);
+          }
+        }
+        
+        if (member && member.fullname) {
+          updateGreetingFullname(member.fullname);
+          return;
+        }
+        
+        // Last resort - use first member's fullname
+        if (allMembers[0] && allMembers[0].fullname) {
+          updateGreetingFullname(allMembers[0].fullname);
+          return;
+        }
+      }
+
+      // If all methods fail
+      document.getElementById('greetingName').textContent = 'User';
+      
+    } catch(e) {
+      console.error('Error fetching fullname:', e);
+      document.getElementById('greetingName').textContent = 'User';
+    }
+  }
+
+  function updateGreetingFullname(fullname) {
+    const greetingSpan = document.getElementById('greetingName');
+    if (greetingSpan && fullname) {
+      greetingSpan.textContent = fullname;
+    }
+    
+    // Store in session storage for navbar
+    sessionStorage.setItem('bepo_user_fullname', fullname);
+    sessionStorage.setItem('bepo_user_name', fullname);
+    
+    // Update navbar profile if available
+    if (window.updateNavbarProfile) {
+      window.updateNavbarProfile(fullname, null, null);
+    }
+  }
+
+  // ============================================
+  // DASHBOARD DATA
+  // ============================================
+  async function loadData() {
+    try {
+      // Load procurement records
+      const { data: records, error: recError } = await supabase
+        .from('procurement_records')
+        .select('*, procurement_items(price)')
+        .order('created_at', { ascending: false });
+      
+      if (!recError && records) allRecords = records;
+
+      // Load items
+      const { data: items, error: itemError } = await supabase
+        .from('procurement_items')
+        .select('*');
+      
+      if (!itemError && items) allItems = items;
+
+      // Load events
+      const { data: events, error: evtError } = await supabase
+        .from('events')
+        .select('*');
+      
+      if (!evtError && events) allEvents = events;
+
+      // Load categories
+      const { data: categories, error: catError } = await supabase
+        .from('procurement_categories')
+        .select('*');
+      
+      if (!catError && categories) allCategories = categories;
+
+      updateDashboard();
+    } catch (e) {
+      console.error('Load data error:', e);
+    }
+  }
+
+  function updateDashboard() {
+    let grandTotal = 0;
+    
+    allRecords.forEach(function(record) {
+      const qty = Number(record.quantity) || 0;
+      const recordPrice = Number(record.price) || 0;
+      const itemPrice = (record.procurement_items && record.procurement_items.price) ? Number(record.procurement_items.price) : 0;
+      grandTotal += recordPrice + (itemPrice * qty);
+    });
+
+    const totalCostEl = document.getElementById('statTotalCost');
+    if (totalCostEl) {
+      totalCostEl.textContent = '₱' + grandTotal.toLocaleString('en-PH', { minimumFractionDigits: 2 });
+    }
+    
+    const itemsEl = document.getElementById('statItems');
+    if (itemsEl) itemsEl.textContent = allItems.length;
+    
+    const eventsEl = document.getElementById('statEvents');
+    if (eventsEl) eventsEl.textContent = allEvents.length;
+    
+    const categoriesEl = document.getElementById('statCategories');
+    if (categoriesEl) categoriesEl.textContent = allCategories.length;
+    
+    const recordsEl = document.getElementById('recordTotal');
+    if (recordsEl) recordsEl.textContent = allRecords.length;
+  }
+
+  // Initialize everything
+  await loadUserProfile();
+  await loadData();
+  
+  // Refresh data every 30 seconds
+  setInterval(loadData, 30000);
+});
+</script>
+</body>
+</html>

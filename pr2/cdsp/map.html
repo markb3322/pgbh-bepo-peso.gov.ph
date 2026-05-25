@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>CDSP Map | BEPO-PESO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #f7f9fc;
+  --border: #e2e8f0;
+  --text: #0d1b2e;
+  --text2: #4a5a6e;
+  --muted: #8a97a8;
+  --accent: #0f766e;
+  --accent-dark: #0d5f59;
+  --accent-light: #e6f7f5;
+  --orange: #f59e0b;
+  --orange-bg: #fef3c7;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --blue: #3b6ef5;
+  --blue-bg: #ebf0ff;
+  --pink: #ec4899;
+  --pink-bg: #fce7f3;
+  --red: #dc2626;
+  --red-bg: #fdecea;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 24px rgba(13,27,46,0.07);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+.main { padding: 28px 32px 40px; max-width: 1400px; margin: 0 auto; animation: fadeUp 0.4s ease both; width: 100%; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+.page-header { margin-bottom: 20px; }
+.page-header h2 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.4px; display: flex; align-items: center; gap: 8px; }
+
+.stats-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+}
+.stat-item {
+  padding: 20px 16px;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s;
+}
+.stat-item:hover { background: var(--surface2); }
+.stat-item + .stat-item { border-left: 1px solid var(--border); }
+.stat-item .stat-icon { font-size: 22px; margin-bottom: 4px; }
+.stat-item .stat-number { font-size: 28px; font-weight: 700; color: var(--text); font-family: var(--mono); line-height: 1; }
+.stat-item .stat-label { font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+.stat-item.total .stat-number { color: var(--accent); }
+.stat-item.students .stat-number { color: var(--blue); }
+.stat-item.complete .stat-number { color: var(--green); }
+.stat-item.incomplete .stat-number { color: var(--orange); }
+
+.map-container { display: flex; gap: 20px; flex-wrap: wrap; }
+.map-wrapper { flex: 1; min-width: 400px; height: 550px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); }
+#boholMap { width: 100%; height: 100%; background: #e8f5f0; }
+
+.legend-panel { width: 280px; display: flex; flex-direction: column; gap: 16px; }
+.legend-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; box-shadow: var(--shadow); }
+.legend-card h4 { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; color: var(--text2); }
+.legend-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+.legend-dot.blue { background: var(--blue); }
+.legend-dot.pink { background: var(--pink); }
+.legend-dot.green-dot { background: var(--green); }
+.legend-dot.orange { background: var(--orange); }
+
+@media (max-width: 900px) {
+  .map-container { flex-direction: column; }
+  .map-wrapper { min-width: auto; height: 400px; }
+  .legend-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .legend-card { flex: 1; min-width: 150px; }
+  .stats-card { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .stats-card { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+  <div class="page-header">
+    <h2>🗺️ CDSP Event Map</h2>
+  </div>
+
+  <div class="map-container">
+    <div class="map-wrapper">
+      <div id="boholMap"></div>
+    </div>
+    <div class="legend-panel">
+      <div class="legend-card">
+        <h4>🗺️ District Boundaries</h4>
+        <div class="legend-row"><span class="legend-dot blue"></span> District 1 (Blue Area)</div>
+        <div class="legend-row"><span class="legend-dot pink"></span> District 2 (Pink Area)</div>
+        <div class="legend-row"><span class="legend-dot green-dot"></span> District 3 (Green Area)</div>
+        <p style="font-size:10px;color:var(--muted);margin-top:6px;">Dashed lines show district boundaries</p>
+      </div>
+      <div class="legend-card">
+        <h4>📍 Event Pins</h4>
+        <div class="legend-row"><span class="legend-dot green-dot"></span> ✅ Complete Events</div>
+        <div class="legend-row"><span class="legend-dot orange"></span> ⚠️ Incomplete Events</div>
+        <div class="legend-row" style="margin-top:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--blue);"></span> 🔵 District 1 Dots</div>
+        <div class="legend-row"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--pink);"></span> 🩷 District 2 Dots</div>
+        <div class="legend-row"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--green);"></span> 🟢 District 3 Dots</div>
+        <p style="font-size:10px;color:var(--muted);margin-top:6px;">Click any pin or dot for details</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-card">
+    <div class="stat-item total">
+      <div class="stat-icon">📋</div>
+      <div class="stat-number" id="statTotalEvents">0</div>
+      <div class="stat-label">Total Events</div>
+    </div>
+    <div class="stat-item students">
+      <div class="stat-icon">👥</div>
+      <div class="stat-number" id="statTotalStudents">0</div>
+      <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-item complete">
+      <div class="stat-icon">✅</div>
+      <div class="stat-number" id="statComplete">0</div>
+      <div class="stat-label">Complete</div>
+    </div>
+    <div class="stat-item incomplete">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-number" id="statIncomplete">0</div>
+      <div class="stat-label">Incomplete</div>
+    </div>
+  </div>
+</main>
+
+<script src="navbar.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const SUPABASE_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let map;
+  let markersLayer;
+  let districtBoundariesLayer;
+  let municipalityDotsLayer;
+  let allLocations = [];
+  let allSchools = [];
+  let allEvents = [];
+
+  const BOHOL_CENTER = [9.85, 124.2];
+
+  const MUNICIPALITY_COORDS = {
+    'Tagbilaran City': [9.64, 123.85], 'Dauis': [9.62, 123.86], 'Panglao': [9.58, 123.75],
+    'Baclayon': [9.63, 123.91], 'Alburquerque': [9.61, 123.96], 'Loay': [9.60, 124.01],
+    'Loboc': [9.64, 124.03], 'Bilar': [9.71, 124.11], 'Batuan': [9.78, 124.14],
+    'Carmen': [9.83, 124.20], 'Sevilla': [9.70, 124.05], 'Lila': [9.61, 124.09],
+    'Dimiao': [9.62, 124.16], 'Valencia': [9.61, 124.21], 'Garcia Hernandez': [9.61, 124.30],
+    'Jagna': [9.65, 124.37], 'Duero': [9.71, 124.40], 'Guindulman': [9.76, 124.49],
+    'Anda': [9.74, 124.57], 'Candijay': [9.82, 124.50], 'Alicia': [9.89, 124.44],
+    'Mabini': [9.86, 124.52], 'Ubay': [10.06, 124.47], 'Talibon': [10.15, 124.32],
+    'Trinidad': [10.08, 124.34], 'San Miguel': [9.99, 124.34], 'Dagohoy': [9.92, 124.32],
+    'Pilar': [9.86, 124.34], 'Sierra Bullones': [9.81, 124.29], 'Buenavista': [10.08, 124.11],
+    'Inabanga': [10.03, 124.07], 'Sagbayan': [9.91, 124.09], 'Catigbian': [9.85, 123.99],
+    'Tubigon': [9.95, 123.96], 'Calape': [9.89, 123.87], 'Loon': [9.80, 123.79],
+    'Maribojoc': [9.74, 123.84], 'Cortes': [9.72, 123.88], 'Corella': [9.69, 123.92],
+    'Balilihan': [9.75, 123.97], 'Sikatuna': [9.69, 123.97], 'Antequera': [9.78, 123.90],
+    'Danao': [9.95, 124.22], 'Bien Unido': [10.14, 124.38], 'Getafe': [10.15, 124.15],
+    'Clarin': [9.96, 124.02], 'Pres. Carlos P. Garcia': [10.12, 124.55],
+    'Vallehermoso': [9.93, 124.40], 'San Isidro': [9.86, 123.96]
+  };
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function updateStats() {
+    var totalEvents = allEvents.length;
+    var totalStudents = allEvents.reduce(function(sum, evt) { return sum + (parseInt(evt.total_students) || 0); }, 0);
+    var completeCount = allEvents.filter(function(evt) { return evt.status === 'Complete'; }).length;
+    var incompleteCount = allEvents.filter(function(evt) { return evt.status === 'Incomplete'; }).length;
+    document.getElementById('statTotalEvents').textContent = totalEvents;
+    document.getElementById('statTotalStudents').textContent = totalStudents;
+    document.getElementById('statComplete').textContent = completeCount;
+    document.getElementById('statIncomplete').textContent = incompleteCount;
+  }
+
+  async function loadData() {
+    try {
+      // Load locations for municipality dots
+      var locRes = await sb.from('locations').select('*').order('municipality').order('barangay');
+      if (!locRes.error) allLocations = locRes.data || [];
+      console.log('✅ Locations loaded:', allLocations.length);
+
+      // Load schools
+      var schRes = await sb.from('schools').select('*').order('school_name');
+      if (!schRes.error) allSchools = schRes.data || [];
+      console.log('✅ Schools loaded:', allSchools.length);
+
+      // Load events from cdsp_events
+      var evtRes = await sb.from('cdsp_events').select('*').order('created_at', { ascending: false });
+      if (!evtRes.error) allEvents = evtRes.data || [];
+      console.log('✅ Events loaded:', allEvents.length);
+
+      updateStats();
+      drawMunicipalityDots();
+      updateMapPins();
+    } catch (e) { console.error('Load error:', e); }
+  }
+
+  function initMap() {
+    map = L.map('boholMap', { center: BOHOL_CENTER, zoom: 10 });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { 
+      attribution: '&copy; OpenStreetMap | BEPO-PESO CDSP', maxZoom: 19 
+    }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+    districtBoundariesLayer = L.layerGroup().addTo(map);
+    municipalityDotsLayer = L.layerGroup().addTo(map);
+    drawDistrictBoundaries();
+  }
+
+  function drawDistrictBoundaries() {
+    L.polygon([
+      [9.55,123.72],[9.60,123.70],[9.70,123.68],[9.80,123.70],[9.90,123.72],[10.00,123.78],
+      [10.02,123.88],[10.00,123.98],[9.95,124.05],[9.85,124.05],[9.78,124.02],[9.70,124.00],
+      [9.62,123.98],[9.55,123.90],[9.55,123.80],[9.55,123.72]
+    ], { color: '#3b6ef5', fillColor: '#3b6ef5', fillOpacity: 0.06, weight: 2.5, dashArray: '10,5' })
+    .addTo(districtBoundariesLayer).bindPopup('<strong style="color:#3b6ef5;">🔵 District 1</strong><br><small>Western Bohol</small>');
+
+    L.polygon([
+      [9.82,124.05],[9.90,124.06],[9.98,124.04],[10.05,124.02],[10.10,124.05],[10.18,124.15],
+      [10.22,124.30],[10.22,124.50],[10.15,124.60],[10.05,124.60],[9.95,124.50],[9.88,124.38],
+      [9.82,124.25],[9.82,124.05]
+    ], { color: '#ec4899', fillColor: '#ec4899', fillOpacity: 0.06, weight: 2.5, dashArray: '10,5' })
+    .addTo(districtBoundariesLayer).bindPopup('<strong style="color:#ec4899;">🩷 District 2</strong><br><small>Northern/Eastern Bohol</small>');
+
+    L.polygon([
+      [9.82,124.25],[9.88,124.38],[9.95,124.50],[10.05,124.60],[10.00,124.68],[9.90,124.68],
+      [9.80,124.65],[9.72,124.58],[9.65,124.48],[9.60,124.38],[9.55,124.25],[9.55,124.10],
+      [9.58,124.00],[9.65,123.98],[9.72,124.00],[9.80,124.02],[9.82,124.05],[9.82,124.25]
+    ], { color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.06, weight: 2.5, dashArray: '10,5' })
+    .addTo(districtBoundariesLayer).bindPopup('<strong style="color:#16a34a;">🟢 District 3</strong><br><small>Southern Bohol</small>');
+  }
+
+  function drawMunicipalityDots() {
+    municipalityDotsLayer.clearLayers();
+    var colors = { '1': '#3b6ef5', '2': '#ec4899', '3': '#16a34a' };
+    var names = { '1': 'District 1', '2': 'District 2', '3': 'District 3' };
+    var drawn = {};
+    allLocations.forEach(function(loc) {
+      if (drawn[loc.municipality]) return;
+      drawn[loc.municipality] = true;
+      var coords = MUNICIPALITY_COORDS[loc.municipality];
+      if (!coords) return;
+      var c = colors[loc.district] || '#94a3b8';
+      L.circleMarker(coords, { radius: 5, fillColor: c, color: '#fff', weight: 1.5, fillOpacity: 0.9 })
+        .addTo(municipalityDotsLayer)
+        .bindPopup('<strong>' + esc(loc.municipality) + '</strong><br><small style="color:' + c + ';">' + (names[loc.district]||'') + '</small>');
+    });
+  }
+
+  // FIXED: Get coordinates from municipality name (not location_id)
+  function getCoordsFromMunicipality(municipality) {
+    var coords = MUNICIPALITY_COORDS[municipality];
+    if (!coords) return BOHOL_CENTER;
+    return [coords[0] + (Math.random()-0.5)*0.008, coords[1] + (Math.random()-0.5)*0.008];
+  }
+
+  function updateMapPins() {
+    markersLayer.clearLayers();
+    allEvents.forEach(function(evt) {
+      // Use municipality field directly (not location_id)
+      var coords = getCoordsFromMunicipality(evt.municipality);
+      if (!coords) {
+        console.warn('No coords for municipality:', evt.municipality);
+        return;
+      }
+
+      var school = allSchools.find(function(s) { return s.id === evt.school_id; });
+      var color = evt.status === 'Complete' ? '#16a34a' : '#f59e0b';
+      var icon = evt.status === 'Complete' ? '✅' : '⚠️';
+      
+      L.circleMarker(coords, { radius: 12, fillColor: color, color: '#fff', weight: 3, fillOpacity: 0.95 })
+        .addTo(markersLayer).bindPopup(
+          '<strong>' + icon + ' ' + esc(evt.event_name) + '</strong><br><hr style="margin:4px 0;">' +
+          '<small>📍 ' + esc((evt.municipality||'') + ', ' + (evt.barangay||'')) + '</small><br>' +
+          '<small>🏫 ' + esc(school ? school.school_name : 'N/A') + '</small><br>' +
+          '<small>📅 ' + (evt.event_date ? new Date(evt.event_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'N/A') + '</small><br>' +
+          '<small>🏠 ' + esc(evt.venue||'N/A') + '</small><br>' +
+          '<small>👥 ' + (evt.total_students||0) + ' students</small><br>' +
+          '<small>📋 <span style="color:'+color+';font-weight:600;">' + esc(evt.status||'Incomplete') + '</span></small>'
+        ).on('click', function() { map.setView(coords, 14); });
+    });
+    console.log('📍 Pins updated:', allEvents.length, 'events on map');
+  }
+
+  function init() {
+    console.log('Initializing CDSP Map...');
+    // FIXED: Use CDSP Navbar
+    if (typeof window.renderCDSPNavbar === 'function') {
+      window.renderCDSPNavbar();
+    }
+    initMap();
+    loadData();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
