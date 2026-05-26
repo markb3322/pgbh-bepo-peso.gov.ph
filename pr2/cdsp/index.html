@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>Dashboard | CDSP BEPO-PESO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #f7f9fc;
+  --border: #e2e8f0;
+  --text: #0d1b2e;
+  --text2: #4a5a6e;
+  --muted: #8a97a8;
+  --accent: #0f766e;
+  --accent-dark: #0d5f59;
+  --accent-light: #e6f7f5;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --orange: #f59e0b;
+  --orange-bg: #fef3c7;
+  --blue: #3b6ef5;
+  --blue-bg: #ebf0ff;
+  --pink: #ec4899;
+  --pink-bg: #fce7f3;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+  --display: 'Playfair Display', Georgia, serif;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 24px rgba(13,27,46,0.07);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+.main { padding: 32px 32px 48px; max-width: 1200px; margin: 0 auto; animation: fadeUp 0.5s ease both; width: 100%; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ===== SECTION 1: GREETING ===== */
+.greeting-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+.greeting-text h2 {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+.greeting-time {
+  font-size: 16px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.greeting-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-top: 6px;
+}
+.greeting-name span {
+  color: var(--accent);
+  font-weight: 700;
+}
+.greeting-date {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ===== SECTION 2: STATS ===== */
+.stats-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.section-title {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.section-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.filter-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.filter-center label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text2);
+}
+.filter-center select {
+  padding: 10px 20px;
+  border: 1.5px solid var(--border);
+  border-radius: 40px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+  cursor: pointer;
+  outline: none;
+  text-align: center;
+  min-width: 180px;
+}
+.filter-center select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15,118,110,0.1);
+}
+
+.stats-grid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 50px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+}
+.stat-block {
+  text-align: center;
+  min-width: 100px;
+}
+.stat-number {
+  font-size: 48px;
+  font-weight: 700;
+  font-family: var(--mono);
+  line-height: 1;
+  color: var(--text);
+}
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
+.stat-block.total .stat-number { color: var(--accent); }
+.stat-block.students .stat-number { color: var(--blue); }
+.stat-block.complete .stat-number { color: var(--green); }
+.stat-block.incomplete .stat-number { color: var(--orange); }
+
+.stat-separator {
+  width: 1px;
+  height: 50px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.footer-note {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  letter-spacing: 0.2px;
+}
+
+@media (max-width: 768px) {
+  .main { padding: 20px 16px 40px; }
+  .greeting-text h2 { font-size: 22px; }
+  .greeting-name { font-size: 16px; }
+  .stat-number { font-size: 36px; }
+  .stats-grid { gap: 30px; }
+  .stat-separator { display: none; }
+}
+@media (max-width: 500px) {
+  .stats-grid { gap: 20px; }
+  .stat-block { min-width: 70px; }
+  .stat-number { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+
+  <!-- ===== SECTION 1: GREETING ===== -->
+  <div class="greeting-section">
+    <div class="greeting-time" id="greetingTime">Good Morning! 👋</div>
+    <div class="greeting-text">
+      <h2>Welcome back, <span id="greetingName">User</span></h2>
+    </div>
+    <div class="greeting-date" id="greetingDate">Loading date...</div>
+  </div>
+
+  <!-- ===== SECTION 2: STATISTICS ===== -->
+  <div class="stats-section">
+    <div class="section-title">📊 CDSP Statistics Overview</div>
+    <div class="section-subtitle">Career Development Support Program · BEPO-PESO Bohol</div>
+
+    <div class="filter-center">
+      <label>📅 Filter by Month:</label>
+      <select id="filterMonth" onchange="applyFilter()">
+        <option value="">All Months</option>
+        <option value="0">January</option>
+        <option value="1">February</option>
+        <option value="2">March</option>
+        <option value="3">April</option>
+        <option value="4">May</option>
+        <option value="5">June</option>
+        <option value="6">July</option>
+        <option value="7">August</option>
+        <option value="8">September</option>
+        <option value="9">October</option>
+        <option value="10">November</option>
+        <option value="11">December</option>
+      </select>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-block total">
+        <div class="stat-number" id="statTotalEvents">0</div>
+        <div class="stat-label">Total Events</div>
+      </div>
+      <div class="stat-separator"></div>
+      <div class="stat-block students">
+        <div class="stat-number" id="statTotalStudents">0</div>
+        <div class="stat-label">Total Students</div>
+      </div>
+      <div class="stat-separator"></div>
+      <div class="stat-block complete">
+        <div class="stat-number" id="statComplete">0</div>
+        <div class="stat-label">Complete</div>
+      </div>
+      <div class="stat-separator"></div>
+      <div class="stat-block incomplete">
+        <div class="stat-number" id="statIncomplete">0</div>
+        <div class="stat-label">Incomplete</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">&copy; 2026 CDSP · Career Development Support Program · BEPO-PESO · Province of Bohol</div>
+
+</main>
+
+<script src="navbar.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const SUPABASE_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let allEvents = [];
+
+  // ============================================
+  // PHILIPPINES TIME
+  // ============================================
+  function getPHTime() {
+    var now = new Date();
+    var utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + (3600000 * 8));
+  }
+
+  function updateGreeting() {
+    var phNow = getPHTime();
+    var hour = phNow.getHours();
+    var greeting;
+
+    if (hour >= 5 && hour < 12) {
+      greeting = 'Good Morning! ☀️';
+    } else if (hour >= 12 && hour < 17) {
+      greeting = 'Good Afternoon! 🌤️';
+    } else if (hour >= 17 && hour < 20) {
+      greeting = 'Good Evening! 🌅';
+    } else {
+      greeting = 'Good Evening! 🌙';
+    }
+
+    document.getElementById('greetingTime').textContent = greeting;
+
+    var options = { 
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+    };
+    document.getElementById('greetingDate').textContent = 
+      phNow.toLocaleDateString('en-US', options) + ' · ' + 
+      phNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT';
+  }
+
+  // ============================================
+  // GET FULLNAME FROM STORAGE
+  // ============================================
+  function loadUserName() {
+    var fullname = sessionStorage.getItem('bepo_user_fullname') ||
+                   sessionStorage.getItem('bepo_user_name') ||
+                   localStorage.getItem('bepo_user_fullname') ||
+                   localStorage.getItem('bepo_user_name') ||
+                   localStorage.getItem('fullname') ||
+                   'User';
+    document.getElementById('greetingName').textContent = fullname;
+  }
+
+  // ============================================
+  // LOAD DATA
+  // ============================================
+  async function loadData() {
+    try {
+      var evtRes = await sb.from('cdsp_events').select('*').order('created_at', { ascending: false });
+      if (!evtRes.error) allEvents = evtRes.data || [];
+      applyFilter();
+    } catch (e) {
+      console.error('Load error:', e);
+    }
+  }
+
+  function applyFilter() {
+    var monthVal = document.getElementById('filterMonth').value;
+    var filtered = allEvents.slice();
+
+    if (monthVal !== '') {
+      var monthNum = parseInt(monthVal);
+      filtered = filtered.filter(function(evt) {
+        var dateStr = evt.event_date || evt.created_at;
+        if (!dateStr) return false;
+        return new Date(dateStr).getMonth() === monthNum;
+      });
+    }
+
+    document.getElementById('statTotalEvents').textContent = filtered.length;
+    document.getElementById('statTotalStudents').textContent = filtered.reduce(function(sum, evt) { 
+      return sum + (parseInt(evt.total_students) || 0); 
+    }, 0);
+    document.getElementById('statComplete').textContent = filtered.filter(function(evt) { 
+      return evt.status === 'Complete'; 
+    }).length;
+    document.getElementById('statIncomplete').textContent = filtered.filter(function(evt) { 
+      return evt.status === 'Incomplete'; 
+    }).length;
+  }
+
+  window.applyFilter = applyFilter;
+
+  // ============================================
+  // INIT
+  // ============================================
+  function init() {
+    console.log('🚀 Initializing Dashboard...');
+    
+    if (typeof window.renderCDSPNavbar === 'function') {
+      window.renderCDSPNavbar();
+    }
+
+    updateGreeting();
+    setInterval(updateGreeting, 60000);
+    loadUserName();
+    loadData();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

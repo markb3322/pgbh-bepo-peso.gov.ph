@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+<title>Location Management | BEPO-PESO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #f7f9fc;
+  --border: #e2e8f0;
+  --text: #0d1b2e;
+  --text2: #4a5a6e;
+  --muted: #8a97a8;
+  --accent: #0f766e;
+  --accent-dark: #0d5f59;
+  --accent-light: #e6f7f5;
+  --red: #dc2626;
+  --red-bg: #fdecea;
+  --font: 'DM Sans', system-ui, sans-serif;
+  --mono: 'DM Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(13,27,46,0.06), 0 8px 24px rgba(13,27,46,0.07);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+.main { padding: 28px 32px 40px; max-width: 1200px; margin: 0 auto; animation: fadeUp 0.4s ease both; width: 100%; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.page-header h2 { font-size: 22px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.page-subtitle { font-size: 13px; color: var(--muted); margin-top: -16px; margin-bottom: 20px; }
+
+.btn { display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 0.14s ease; font-family: var(--font); text-decoration: none; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-dark); transform: translateY(-1px); }
+.btn-secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--surface2); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid transparent; }
+.btn-danger:hover { background: #fce4e4; }
+.btn-danger-solid { background: var(--red); color: #fff; border: none; }
+.btn-danger-solid:hover { background: #b91c1c; transform: translateY(-1px); }
+
+.filter-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+.filter-bar label { font-size: 12px; font-weight: 600; color: var(--text2); white-space: nowrap; }
+.filter-bar select, .filter-bar input { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); outline: none; background: var(--surface); min-width: 150px; }
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent); }
+.filter-bar .badge-count { font-size: 12px; color: var(--accent); background: var(--accent-light); padding: 5px 12px; border-radius: 20px; font-weight: 600; margin-left: auto; }
+
+.form-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.form-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.form-group input, .form-group select { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); outline: none; background: var(--surface); }
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+.form-group .required::after { content: ' *'; color: var(--red); }
+.form-actions { margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end; }
+
+.table-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
+thead { background: var(--surface2); border-bottom: 2px solid var(--border); position: sticky; top: 0; }
+th { padding: 12px 14px; text-align: left; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+tbody tr:hover { background: var(--accent-light); }
+.td-actions { display: flex; gap: 6px; }
+.empty-state { text-align: center; padding: 40px; color: var(--muted); }
+
+.district-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
+.district-1 { background: #3b6ef5; }
+.district-2 { background: #ec4899; }
+.district-3 { background: #16a34a; }
+
+/* Pagination Styles */
+.pagination-container { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; padding: 15px 0; flex-wrap: wrap; }
+.pagination-btn { padding: 8px 14px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; color: var(--text2); }
+.pagination-btn:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.pagination-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+.pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pagination-numbers { display: flex; gap: 6px; flex-wrap: wrap; }
+.page-number { padding: 8px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; color: var(--text2); min-width: 40px; text-align: center; }
+.page-number:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.page-number.active { background: var(--accent); color: white; border-color: var(--accent); }
+.pagination-info { font-size: 12px; color: var(--muted); margin-left: 12px; }
+
+/* Modal Styles */
+.modal-overlay { position: fixed; inset: 0; background: rgba(13,27,46,0.45); backdrop-filter: blur(3px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 16px; width: 100%; max-width: 450px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: modalIn 0.2s ease; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); background: var(--red-bg); }
+.modal-header h3 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: var(--red); }
+.modal-close { width: 30px; height: 30px; border-radius: 8px; border: none; background: rgba(0,0,0,0.05); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--muted); }
+.modal-close:hover { background: var(--border); }
+.modal-body { padding: 20px 22px; }
+.modal-body p { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+.modal-body .warning-box { background: var(--red-bg); padding: 12px; border-radius: 8px; margin-bottom: 16px; border-left: 3px solid var(--red); }
+.modal-body .warning-box p { margin-bottom: 0; font-size: 12px; color: var(--red); }
+.modal-body input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); outline: none; }
+.modal-body input:focus { border-color: var(--red); }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--border); background: var(--surface2); }
+
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast { background: #0d1b2e; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.2); animation: slideIn 0.25s ease; display: flex; align-items: center; gap: 8px; pointer-events: all; }
+.toast.success .toast-icon { color: #4ade80; }
+.toast.error .toast-icon { color: #f87171; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (max-width: 768px) {
+  .main { padding: 16px 14px 32px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .pagination-numbers { max-width: 300px; overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<main class="main">
+  <div class="page-header">
+    <h2>📍 Location Management</h2>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-danger-solid" id="clearAllBtn">⚠️ Clear All Data</button>
+      <button class="btn btn-primary" id="toggleFormBtn">+ Add New Location</button>
+    </div>
+  </div>
+  <p class="page-subtitle">Manage Municipalities, Barangays, and Zip Codes by District</p>
+
+  <!-- Form -->
+  <div class="form-card" id="locationForm" style="display: none;">
+    <div class="form-title">📝 <span id="formTitle">Add New Location</span></div>
+    <input type="hidden" id="locationId" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="required">District</label>
+        <select id="district">
+          <option value="">Select District</option>
+          <option value="1">District 1</option>
+          <option value="2">District 2</option>
+          <option value="3">District 3</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="required">Municipality</label>
+        <input type="text" id="municipality" placeholder="Enter municipality name" />
+      </div>
+      <div class="form-group">
+        <label class="required">Barangay</label>
+        <input type="text" id="barangay" placeholder="Enter barangay name" />
+      </div>
+      <div class="form-group">
+        <label class="required">Zip Code</label>
+        <input type="text" id="zipcode" placeholder="e.g. 6300" maxlength="4" />
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" id="cancelFormBtn">Cancel</button>
+      <button class="btn btn-primary" id="saveLocationBtn">💾 Save Location</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <label>District:</label>
+    <select id="filterDistrict">
+      <option value="">All Districts</option>
+      <option value="1">District 1</option>
+      <option value="2">District 2</option>
+      <option value="3">District 3</option>
+    </select>
+    <label>Municipality:</label>
+    <select id="filterMunicipality">
+      <option value="">All Municipalities</option>
+    </select>
+    <label>Search:</label>
+    <input type="text" id="filterSearch" placeholder="Search barangay, zip code..." />
+    <span class="badge-count" id="countBadge">0 locations</span>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-wrap">
+      <table id="locationsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>District</th>
+            <th>Municipality</th>
+            <th>Barangay</th>
+            <th>Zip Code</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="6" class="empty-state">Loading locations...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination-container">
+    <button class="pagination-btn" id="prevPageBtn" disabled>◀ Previous</button>
+    <div class="pagination-numbers" id="paginationNumbers"></div>
+    <button class="pagination-btn" id="nextPageBtn" disabled>Next ▶</button>
+    <span class="pagination-info" id="paginationInfo"></span>
+  </div>
+</main>
+
+<!-- Clear All Data Modal -->
+<div class="modal-overlay" id="clearModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>⚠️ Clear All Data</h3>
+      <button class="modal-close" onclick="closeClearModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="warning-box">
+        <p>⚠️ This will permanently delete ALL CDSP manage location records.</p>
+        <p>This action cannot be undone!</p>
+      </div>
+      <p>Type <strong style="color: var(--red);">DELETE</strong> to confirm:</p>
+      <input type="text" id="confirmDeleteInput" placeholder="Type DELETE here" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeClearModal()">Cancel</button>
+      <button class="btn btn-danger-solid" id="confirmDeleteBtn">🗑️ Delete All Records</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="navbar.js"></script>
+<script>
+(function() {
+  'use strict';
+
+  const SUPABASE_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let allLocations = [];
+  let filteredLocations = [];
+  let currentEditId = null;
+  
+  // Pagination variables
+  let currentPage = 1;
+  let rowsPerPage = 15;
+
+  function showToast(message, type) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'success');
+    toast.innerHTML = '<span class="toast-icon">' + (type === 'error' ? '✕' : '✓') + '</span><span>' + message + '</span>';
+    container.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+  }
+
+  function esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  async function loadLocations() {
+    try {
+      var result = await sb
+        .from('locations')
+        .select('*')
+        .order('district', { ascending: true })
+        .order('municipality', { ascending: true })
+        .order('barangay', { ascending: true });
+
+      if (result.error) {
+        document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Error: ' + esc(result.error.message) + '</td></tr>';
+        return;
+      }
+      allLocations = result.data || [];
+      populateMunicipalityFilter();
+      applyFilters();
+    } catch (err) {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="empty-state">Failed to load locations</td></tr>';
+    }
+  }
+
+  function populateMunicipalityFilter() {
+    var districtFilter = document.getElementById('filterDistrict').value;
+    var select = document.getElementById('filterMunicipality');
+    var municipalities = [];
+    
+    allLocations.forEach(function(loc) {
+      if (!districtFilter || loc.district == districtFilter) {
+        if (municipalities.indexOf(loc.municipality) === -1) {
+          municipalities.push(loc.municipality);
+        }
+      }
+    });
+    
+    municipalities.sort();
+    
+    var currentValue = select.value;
+    select.innerHTML = '<option value="">All Municipalities</option>';
+    municipalities.forEach(function(mun) {
+      var selected = (mun === currentValue) ? ' selected' : '';
+      select.innerHTML += '<option value="' + esc(mun) + '"' + selected + '>' + esc(mun) + '</option>';
+    });
+  }
+
+  function applyFilters() {
+    var districtFilter = document.getElementById('filterDistrict').value;
+    var municipalityFilter = document.getElementById('filterMunicipality').value;
+    var searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+    
+    filteredLocations = allLocations.slice();
+    
+    if (districtFilter) {
+      filteredLocations = filteredLocations.filter(function(l) { return l.district == districtFilter; });
+    }
+    if (municipalityFilter) {
+      filteredLocations = filteredLocations.filter(function(l) { return l.municipality === municipalityFilter; });
+    }
+    if (searchFilter) {
+      filteredLocations = filteredLocations.filter(function(l) {
+        return (l.barangay || '').toLowerCase().indexOf(searchFilter) !== -1 ||
+               (l.zipcode || '').toLowerCase().indexOf(searchFilter) !== -1;
+      });
+    }
+    
+    document.getElementById('countBadge').textContent = filteredLocations.length + ' location' + (filteredLocations.length !== 1 ? 's' : '');
+    
+    // Reset to first page when filters change
+    currentPage = 1;
+    renderPagination();
+    renderCurrentPage();
+  }
+
+  function renderCurrentPage() {
+    var startIndex = (currentPage - 1) * rowsPerPage;
+    var endIndex = startIndex + rowsPerPage;
+    var pageLocations = filteredLocations.slice(startIndex, endIndex);
+    renderTable(pageLocations, startIndex);
+    updatePaginationInfo();
+  }
+
+  function renderTable(locations, startIndex) {
+    var tbody = document.getElementById('tableBody');
+    
+    if (!locations || locations.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">📭 No locations found</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = locations.map(function(loc, i) {
+      var rowNumber = startIndex + i + 1;
+      return '<tr>' +
+        '<td>' + rowNumber + '</td>' +
+        '<td><span class="district-badge district-' + loc.district + '">District ' + loc.district + '</span></td>' +
+        '<td><strong>' + esc(loc.municipality) + '</strong></td>' +
+        '<td>' + esc(loc.barangay) + '</td>' +
+        '<td><span style="font-family:var(--mono);color:var(--accent);">' + esc(loc.zipcode) + '</span></td>' +
+        '<td class="td-actions">' +
+          '<button class="btn btn-secondary btn-sm" data-action="edit" data-id="' + loc.id + '">✏️ Edit</button>' +
+          '<button class="btn btn-danger btn-sm" data-action="delete" data-id="' + loc.id + '">🗑️ Delete</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    tbody.querySelectorAll('[data-action="edit"]').forEach(function(btn) {
+      btn.addEventListener('click', function() { editLocation(this.dataset.id); });
+    });
+    tbody.querySelectorAll('[data-action="delete"]').forEach(function(btn) {
+      btn.addEventListener('click', function() { deleteLocation(this.dataset.id); });
+    });
+  }
+
+  function renderPagination() {
+    var totalPages = Math.ceil(filteredLocations.length / rowsPerPage);
+    var paginationNumbers = document.getElementById('paginationNumbers');
+    var prevBtn = document.getElementById('prevPageBtn');
+    var nextBtn = document.getElementById('nextPageBtn');
+    
+    if (totalPages <= 1) {
+      paginationNumbers.innerHTML = '';
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+      return;
+    }
+    
+    prevBtn.disabled = (currentPage === 1);
+    nextBtn.disabled = (currentPage === totalPages);
+    
+    var startPage = Math.max(1, currentPage - 2);
+    var endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (endPage - startPage < 4) {
+      if (startPage === 1) {
+        endPage = Math.min(totalPages, startPage + 4);
+      } else if (endPage === totalPages) {
+        startPage = Math.max(1, endPage - 4);
+      }
+    }
+    
+    var html = '';
+    
+    if (startPage > 1) {
+      html += '<div class="page-number" data-page="1">1</div>';
+      if (startPage > 2) html += '<div class="page-number disabled" style="cursor:default;">...</div>';
+    }
+    
+    for (var i = startPage; i <= endPage; i++) {
+      var activeClass = (i === currentPage) ? ' active' : '';
+      html += '<div class="page-number' + activeClass + '" data-page="' + i + '">' + i + '</div>';
+    }
+    
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) html += '<div class="page-number disabled" style="cursor:default;">...</div>';
+      html += '<div class="page-number" data-page="' + totalPages + '">' + totalPages + '</div>';
+    }
+    
+    paginationNumbers.innerHTML = html;
+    
+    document.querySelectorAll('.page-number').forEach(function(el) {
+      if (el.dataset.page) {
+        el.addEventListener('click', function() {
+          currentPage = parseInt(this.dataset.page);
+          renderPagination();
+          renderCurrentPage();
+        });
+      }
+    });
+  }
+
+  function updatePaginationInfo() {
+    var startItem = (currentPage - 1) * rowsPerPage + 1;
+    var endItem = Math.min(startItem + rowsPerPage - 1, filteredLocations.length);
+    var infoSpan = document.getElementById('paginationInfo');
+    if (filteredLocations.length > 0) {
+      infoSpan.textContent = 'Showing ' + startItem + ' - ' + endItem + ' of ' + filteredLocations.length;
+    } else {
+      infoSpan.textContent = 'No records';
+    }
+  }
+
+  function editLocation(id) {
+    var loc = allLocations.find(function(l) { return l.id === id; });
+    if (!loc) return;
+    currentEditId = id;
+    document.getElementById('locationId').value = loc.id;
+    document.getElementById('district').value = loc.district;
+    document.getElementById('municipality').value = loc.municipality;
+    document.getElementById('barangay').value = loc.barangay;
+    document.getElementById('zipcode').value = loc.zipcode;
+    document.getElementById('formTitle').textContent = 'Edit Location';
+    document.getElementById('locationForm').style.display = 'block';
+    document.getElementById('toggleFormBtn').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function deleteLocation(id) {
+    if (!confirm('Delete this location?')) return;
+    try {
+      var result = await sb.from('locations').delete().eq('id', id);
+      if (result.error) { showToast('Delete failed: ' + result.error.message, 'error'); return; }
+      allLocations = allLocations.filter(function(l) { return l.id !== id; });
+      populateMunicipalityFilter();
+      applyFilters();
+      showToast('Location deleted ✓');
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  }
+
+  async function saveLocation() {
+    var district = document.getElementById('district').value;
+    var municipality = document.getElementById('municipality').value.trim();
+    var barangay = document.getElementById('barangay').value.trim();
+    var zipcode = document.getElementById('zipcode').value.trim();
+    
+    if (!district) { showToast('Please select district', 'error'); return; }
+    if (!municipality) { showToast('Please enter municipality', 'error'); return; }
+    if (!barangay) { showToast('Please enter barangay', 'error'); return; }
+    if (!zipcode) { showToast('Please enter zip code', 'error'); return; }
+    
+    var payload = { district: district, municipality: municipality, barangay: barangay, zipcode: zipcode };
+    
+    try {
+      var result;
+      if (currentEditId) {
+        result = await sb.from('locations').update(payload).eq('id', currentEditId).select();
+        if (result.error) { showToast('Update failed: ' + result.error.message, 'error'); return; }
+        var idx = allLocations.findIndex(function(l) { return l.id === currentEditId; });
+        if (idx !== -1 && result.data && result.data[0]) allLocations[idx] = result.data[0];
+        showToast('Location updated ✓');
+      } else {
+        result = await sb.from('locations').insert([payload]).select();
+        if (result.error) { showToast('Insert failed: ' + result.error.message, 'error'); return; }
+        if (result.data && result.data[0]) allLocations.push(result.data[0]);
+        showToast('Location added ✓');
+      }
+      resetForm();
+      populateMunicipalityFilter();
+      applyFilters();
+    } catch (err) { showToast('Error: ' + err.message, 'error'); }
+  }
+
+  function resetForm() {
+    currentEditId = null;
+    document.getElementById('locationId').value = '';
+    document.getElementById('district').value = '';
+    document.getElementById('municipality').value = '';
+    document.getElementById('barangay').value = '';
+    document.getElementById('zipcode').value = '';
+    document.getElementById('formTitle').textContent = 'Add New Location';
+    document.getElementById('locationForm').style.display = 'none';
+    document.getElementById('toggleFormBtn').style.display = 'inline-flex';
+  }
+
+  // Clear All Data Functions
+  function openClearModal() {
+    document.getElementById('clearModal').classList.add('open');
+    document.getElementById('confirmDeleteInput').value = '';
+  }
+
+  window.closeClearModal = function() {
+    document.getElementById('clearModal').classList.remove('open');
+  }
+
+  async function deleteAllLocations() {
+    var confirmText = document.getElementById('confirmDeleteInput').value;
+    if (confirmText !== 'DELETE') {
+      showToast('Please type DELETE to confirm', 'error');
+      return;
+    }
+    
+    try {
+      var result = await sb.from('locations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      if (result.error) throw result.error;
+      
+      allLocations = [];
+      filteredLocations = [];
+      currentPage = 1;
+      populateMunicipalityFilter();
+      applyFilters();
+      closeClearModal();
+      showToast('All locations deleted successfully ✓');
+    } catch (err) {
+      showToast('Delete failed: ' + err.message, 'error');
+    }
+  }
+
+  function init() {
+    if (typeof window.renderCDSPNavbar === 'function') {
+      window.renderCDSPNavbar();
+    }
+
+    document.getElementById('toggleFormBtn').addEventListener('click', function() {
+      resetForm();
+      document.getElementById('locationForm').style.display = 'block';
+      document.getElementById('toggleFormBtn').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.getElementById('cancelFormBtn').addEventListener('click', resetForm);
+    document.getElementById('saveLocationBtn').addEventListener('click', saveLocation);
+    document.getElementById('filterDistrict').addEventListener('change', function() {
+      populateMunicipalityFilter();
+      applyFilters();
+    });
+    document.getElementById('filterMunicipality').addEventListener('change', applyFilters);
+    document.getElementById('filterSearch').addEventListener('input', applyFilters);
+    
+    // Pagination buttons
+    document.getElementById('prevPageBtn').addEventListener('click', function() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPagination();
+        renderCurrentPage();
+      }
+    });
+    document.getElementById('nextPageBtn').addEventListener('click', function() {
+      var totalPages = Math.ceil(filteredLocations.length / rowsPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderPagination();
+        renderCurrentPage();
+      }
+    });
+    
+    // Clear All Data button
+    document.getElementById('clearAllBtn').addEventListener('click', openClearModal);
+    document.getElementById('confirmDeleteBtn').addEventListener('click', deleteAllLocations);
+    
+    // Close modal when clicking overlay
+    document.getElementById('clearModal').addEventListener('click', function(e) {
+      if (e.target === this) closeClearModal();
+    });
+    
+    // Enter key in input triggers delete
+    document.getElementById('confirmDeleteInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        deleteAllLocations();
+      }
+    });
+    
+    loadLocations();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

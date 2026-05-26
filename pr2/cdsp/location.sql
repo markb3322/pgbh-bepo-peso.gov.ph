@@ -1,0 +1,140 @@
+-- ============================================
+-- LOCATIONS TABLE
+-- ============================================
+DROP TABLE IF EXISTS locations CASCADE;
+
+CREATE TABLE locations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    district TEXT NOT NULL,
+    municipality TEXT NOT NULL,
+    barangay TEXT NOT NULL,
+    purok TEXT,
+    zipcode TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Disable RLS for now (enable later with policies)
+ALTER TABLE locations DISABLE ROW LEVEL SECURITY;
+
+-- ============================================
+-- INSERT BOHOL LOCATIONS DATA
+-- ============================================
+
+-- DISTRICT 1 (Tagbilaran area)
+INSERT INTO locations (district, municipality, barangay, purok, zipcode) VALUES
+('1', 'Tagbilaran City', 'Poblacion I', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Poblacion II', 'Purok 2', '6300'),
+('1', 'Tagbilaran City', 'Poblacion III', 'Purok 3', '6300'),
+('1', 'Tagbilaran City', 'Cogon', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Cogon', 'Purok 2', '6300'),
+('1', 'Tagbilaran City', 'Dao', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Dao', 'Purok 2', '6300'),
+('1', 'Tagbilaran City', 'Dampas', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Booy', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Booy', 'Purok 2', '6300'),
+('1', 'Tagbilaran City', 'Taloto', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Mansasa', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Tiptip', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'San Isidro', 'Purok 1', '6300'),
+('1', 'Tagbilaran City', 'Cabawan', 'Purok 1', '6300'),
+('1', 'Alburquerque', 'Poblacion', 'Purok 1', '6302'),
+('1', 'Alburquerque', 'Poblacion', 'Purok 2', '6302'),
+('1', 'Alburquerque', 'Bahi', 'Purok 1', '6302'),
+('1', 'Alburquerque', 'San Agustin', 'Purok 1', '6302'),
+('1', 'Baclayon', 'Poblacion', 'Purok 1', '6301'),
+('1', 'Baclayon', 'Poblacion', 'Purok 2', '6301'),
+('1', 'Baclayon', 'San Isidro', 'Purok 1', '6301'),
+('1', 'Baclayon', 'San Roque', 'Purok 1', '6301'),
+('1', 'Balilihan', 'Poblacion', 'Purok 1', '6342'),
+('1', 'Balilihan', 'Poblacion', 'Purok 2', '6342'),
+('1', 'Balilihan', 'San Isidro', 'Purok 1', '6342'),
+('1', 'Catigbian', 'Poblacion', 'Purok 1', '6343'),
+('1', 'Catigbian', 'Poblacion', 'Purok 2', '6343'),
+('1', 'Corella', 'Poblacion', 'Purok 1', '6337'),
+('1', 'Cortes', 'Poblacion', 'Purok 1', '6341'),
+('1', 'Dauis', 'Poblacion', 'Purok 1', '6339'),
+('1', 'Dauis', 'Poblacion', 'Purok 2', '6339'),
+('1', 'Dauis', 'Bingag', 'Purok 1', '6339'),
+('1', 'Dauis', 'Totolan', 'Purok 1', '6339'),
+('1', 'Dauis', 'Songculan', 'Purok 1', '6339'),
+('1', 'Loon', 'Poblacion', 'Purok 1', '6327'),
+('1', 'Loon', 'Poblacion', 'Purok 2', '6327'),
+('1', 'Loon', 'Basdio', 'Purok 1', '6327'),
+('1', 'Maribojoc', 'Poblacion', 'Purok 1', '6336'),
+('1', 'Maribojoc', 'Poblacion', 'Purok 2', '6336'),
+('1', 'Panglao', 'Poblacion', 'Purok 1', '6340'),
+('1', 'Panglao', 'Poblacion', 'Purok 2', '6340'),
+('1', 'Panglao', 'Tawala', 'Purok 1', '6340'),
+('1', 'Panglao', 'Danao', 'Purok 1', '6340'),
+('1', 'Panglao', 'Doljo', 'Purok 1', '6340'),
+('1', 'Sikatuna', 'Poblacion', 'Purok 1', '6338'),
+('1', 'Tubigon', 'Poblacion', 'Purok 1', '6329'),
+('1', 'Tubigon', 'Poblacion', 'Purok 2', '6329'),
+('1', 'Tubigon', 'Poblacion', 'Purok 3', '6329'),
+('1', 'Tubigon', 'Cahayag', 'Purok 1', '6329');
+
+-- DISTRICT 2 (Ubay / Talibon area)
+INSERT INTO locations (district, municipality, barangay, purok, zipcode) VALUES
+('2', 'Ubay', 'Poblacion', 'Purok 1', '6315'),
+('2', 'Ubay', 'Poblacion', 'Purok 2', '6315'),
+('2', 'Ubay', 'Poblacion', 'Purok 3', '6315'),
+('2', 'Ubay', 'Tipolo', 'Purok 1', '6315'),
+('2', 'Ubay', 'San Pascual', 'Purok 1', '6315'),
+('2', 'Ubay', 'Fatima', 'Purok 1', '6315'),
+('2', 'Talibon', 'Poblacion', 'Purok 1', '6325'),
+('2', 'Talibon', 'Poblacion', 'Purok 2', '6325'),
+('2', 'Talibon', 'San Agustin', 'Purok 1', '6325'),
+('2', 'Talibon', 'San Jose', 'Purok 1', '6325'),
+('2', 'Trinidad', 'Poblacion', 'Purok 1', '6324'),
+('2', 'Trinidad', 'Poblacion', 'Purok 2', '6324'),
+('2', 'San Miguel', 'Poblacion', 'Purok 1', '6323'),
+('2', 'San Miguel', 'Poblacion', 'Purok 2', '6323'),
+('2', 'Dagohoy', 'Poblacion', 'Purok 1', '6322'),
+('2', 'Danao', 'Poblacion', 'Purok 1', '6344'),
+('2', 'Danao', 'Poblacion', 'Purok 2', '6344'),
+('2', 'Bien Unido', 'Poblacion', 'Purok 1', '6326'),
+('2', 'Bien Unido', 'Poblacion', 'Purok 2', '6326'),
+('2', 'Pres. Carlos P. Garcia', 'Poblacion', 'Purok 1', '6346'),
+('2', 'Pres. Carlos P. Garcia', 'Poblacion', 'Purok 2', '6346'),
+('2', 'Alicia', 'Poblacion', 'Purok 1', '6314'),
+('2', 'Alicia', 'Poblacion', 'Purok 2', '6314'),
+('2', 'Pilar', 'Poblacion', 'Purok 1', '6321'),
+('2', 'Pilar', 'Poblacion', 'Purok 2', '6321'),
+('2', 'Mabini', 'Poblacion', 'Purok 1', '6313'),
+('2', 'Mabini', 'Poblacion', 'Purok 2', '6313'),
+('2', 'Candijay', 'Poblacion', 'Purok 1', '6312'),
+('2', 'Candijay', 'Poblacion', 'Purok 2', '6312');
+
+-- DISTRICT 3 (Jagna / Garcia Hernandez area)
+INSERT INTO locations (district, municipality, barangay, purok, zipcode) VALUES
+('3', 'Jagna', 'Poblacion', 'Purok 1', '6308'),
+('3', 'Jagna', 'Poblacion', 'Purok 2', '6308'),
+('3', 'Jagna', 'Poblacion', 'Purok 3', '6308'),
+('3', 'Jagna', 'Can-upao', 'Purok 1', '6308'),
+('3', 'Jagna', 'Pagina', 'Purok 1', '6308'),
+('3', 'Garcia Hernandez', 'Poblacion', 'Purok 1', '6307'),
+('3', 'Garcia Hernandez', 'Poblacion', 'Purok 2', '6307'),
+('3', 'Garcia Hernandez', 'Canayaon', 'Purok 1', '6307'),
+('3', 'Valencia', 'Poblacion', 'Purok 1', '6306'),
+('3', 'Valencia', 'Poblacion', 'Purok 2', '6306'),
+('3', 'Dimiao', 'Poblacion', 'Purok 1', '6305'),
+('3', 'Dimiao', 'Poblacion', 'Purok 2', '6305'),
+('3', 'Lila', 'Poblacion', 'Purok 1', '6304'),
+('3', 'Loay', 'Poblacion', 'Purok 1', '6303'),
+('3', 'Loay', 'Poblacion', 'Purok 2', '6303'),
+('3', 'Loboc', 'Poblacion', 'Purok 1', '6316'),
+('3', 'Loboc', 'Poblacion', 'Purok 2', '6316'),
+('3', 'Sevilla', 'Poblacion', 'Purok 1', '6347'),
+('3', 'Bilar', 'Poblacion', 'Purok 1', '6317'),
+('3', 'Bilar', 'Poblacion', 'Purok 2', '6317'),
+('3', 'Batuan', 'Poblacion', 'Purok 1', '6318'),
+('3', 'Carmen', 'Poblacion', 'Purok 1', '6319'),
+('3', 'Carmen', 'Poblacion', 'Purok 2', '6319'),
+('3', 'Sierra Bullones', 'Poblacion', 'Purok 1', '6320'),
+('3', 'Sierra Bullones', 'Poblacion', 'Purok 2', '6320'),
+('3', 'Duero', 'Poblacion', 'Purok 1', '6309'),
+('3', 'Duero', 'Poblacion', 'Purok 2', '6309'),
+('3', 'Guindulman', 'Poblacion', 'Purok 1', '6310'),
+('3', 'Guindulman', 'Poblacion', 'Purok 2', '6310'),
+('3', 'Anda', 'Poblacion', 'Purok 1', '6311'),
+('3', 'Anda', 'Poblacion', 'Purok 2', '6311');
