@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>School Management | BEPO-PESO</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Playfair Display', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-in { animation: modalIn 0.2s ease; }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-in { animation: slideIn 0.25s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        .table-row-hover:hover { background-color: #f0fdfa; }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <div id="navbar-root"></div>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">
+
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h2 class="text-2xl md:text-3xl font-display font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-school text-teal-600"></i> School Management
+                </h2>
+                <p class="text-slate-400 text-sm mt-1">Manage schools by district, municipality, and barangay</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="clearAllBtn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl font-semibold text-sm hover:bg-red-100 transition-all">
+                    <i class="fas fa-trash-alt"></i> Clear All Data
+                </button>
+                <button id="toggleFormBtn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-xl font-semibold text-sm hover:bg-teal-700 transition-all shadow-sm">
+                    <i class="fas fa-plus"></i> Add New School
+                </button>
+            </div>
+        </div>
+
+        <div id="schoolForm" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 transition-all">
+            <h3 class="text-lg font-display font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <i class="fas fa-pen-to-square text-teal-500"></i> <span id="formTitle">Add New School</span>
+            </h3>
+            <input type="hidden" id="schoolId" />
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">School Name <span class="text-red-400">*</span></label>
+                    <input type="text" id="schoolName" placeholder="Enter school name" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">District <span class="text-red-400">*</span></label>
+                    <select id="district" onchange="window.onDistrictChange()" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white">
+                        <option value="">Select District</option>
+                        <option value="1">District 1</option>
+                        <option value="2">District 2</option>
+                        <option value="3">District 3</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Municipality <span class="text-red-400">*</span></label>
+                    <select id="municipality" onchange="window.onMunicipalityChange()" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white">
+                        <option value="">Select Municipality</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-red-400">*</span></label>
+                    <select id="barangay" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition bg-white">
+                        <option value="">Select Barangay</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="cancelFormBtn" class="px-5 py-2.5 border border-slate-300 text-slate-600 rounded-xl font-semibold text-sm hover:bg-slate-50 transition-all">Cancel</button>
+                <button id="saveSchoolBtn" class="px-6 py-2.5 bg-teal-600 text-white rounded-xl font-semibold text-sm hover:bg-teal-700 transition-all shadow-sm flex items-center gap-2">
+                    <i class="fas fa-save"></i> Save School
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 mb-6">
+            <div class="flex flex-wrap items-center gap-3">
+                <label class="text-xs font-semibold text-slate-500 uppercase">District:</label>
+                <select id="filterDistrict" class="px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-1 focus:ring-teal-500 outline-none min-w-[130px]">
+                    <option value="">All Districts</option>
+                    <option value="1">District 1</option>
+                    <option value="2">District 2</option>
+                    <option value="3">District 3</option>
+                </select>
+                <label class="text-xs font-semibold text-slate-500 uppercase"><i class="fas fa-search text-teal-500 mr-1"></i> Search:</label>
+                <input type="text" id="filterSearch" placeholder="Search school name..." class="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-1 focus:ring-teal-500 outline-none min-w-[200px]" />
+                <span id="countBadge" class="ml-auto text-xs font-semibold text-teal-600 bg-teal-50 px-3 py-1.5 rounded-full">0 schools</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table id="schoolsTable" class="w-full text-sm">
+                    <thead class="bg-slate-50 border-b-2 border-slate-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">#</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">School Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">District</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Municipality</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Barangay</th>
+                            <th class="px-6 py-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <tr><td colspan="6" class="text-center py-12 text-slate-400">Loading schools...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
+            <div class="flex items-center gap-2">
+                <button id="prevPageBtn" disabled class="px-4 py-2 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm font-semibold hover:bg-teal-50 hover:border-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                    <i class="fas fa-chevron-left mr-1"></i> Previous
+                </button>
+                <div id="paginationNumbers" class="flex gap-1"></div>
+                <button id="nextPageBtn" disabled class="px-4 py-2 border border-slate-300 bg-white text-slate-600 rounded-lg text-sm font-semibold hover:bg-teal-50 hover:border-teal-400 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                    Next <i class="fas fa-chevron-right ml-1"></i>
+                </button>
+            </div>
+            <span id="paginationInfo" class="text-xs text-slate-400"></span>
+        </div>
+
+    </main>
+
+    <div id="clearModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl modal-in overflow-hidden">
+            <div class="px-6 py-4 bg-red-50 border-b border-red-100">
+                <h3 class="text-lg font-display font-bold text-red-600 flex items-center gap-2">
+                    <i class="fas fa-exclamation-triangle"></i> Clear All Data
+                </h3>
+            </div>
+            <div class="p-6">
+                <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg mb-4">
+                    <p class="text-sm text-red-700 font-semibold">This will permanently delete ALL school records.</p>
+                    <p class="text-xs text-red-500 mt-1">This action cannot be undone!</p>
+                </div>
+                <p class="text-sm text-slate-600 mb-3">Type <strong class="text-red-500 font-mono">DELETE</strong> to confirm:</p>
+                <input type="text" id="confirmDeleteInput" placeholder="Type DELETE here" class="w-full px-4 py-3 border border-slate-300 rounded-lg text-center font-mono text-sm focus:ring-2 focus:ring-red-400 outline-none" />
+            </div>
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+                <button onclick="window.closeClearModal()" class="px-5 py-2.5 border border-slate-300 text-slate-600 rounded-xl font-semibold text-sm hover:bg-white transition-all">Cancel</button>
+                <button id="confirmDeleteBtn" class="px-5 py-2.5 bg-red-500 text-white rounded-xl font-semibold text-sm hover:bg-red-600 transition-all flex items-center gap-2">
+                    <i class="fas fa-trash-alt"></i> Delete All Records
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
+
+    <script src="navbar.js"></script>
+
+    <script>
+    (function() {
+        'use strict';
+
+        const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let allSchools = [], filteredSchools = [], currentEditId = null, currentPage = 1;
+        const rowsPerPage = 15;
+        let municipalities = [], barangays = [], barangaysByCode = new Map();
+        let isLoading = true;
+
+        const DISTRICT_1_MUNICIPALITIES = [
+            'Alburquerque', 'Antequera', 'Baclayon', 'Balilihan', 'Calape', 'Catigbian', 'Clarin', 
+            'Corella', 'Cortes', 'Dauis', 'Loon', 'Maribojoc', 'Panglao', 'Sikatuna', 'Tubigon', 'City of Tagbilaran'
+        ];
+        
+        const DISTRICT_2_MUNICIPALITIES = [
+            'Bien Unido', 'Buenavista', 'Carmen', 'Dagohoy', 'Danao', 'Getafe', 'Inabanga', 
+            'President Carlos P. Garcia', 'Sagbayan', 'San Miguel', 'Talibon', 'Trinidad', 'Ubay'
+        ];
+        
+        const DISTRICT_3_MUNICIPALITIES = [
+            'Alicia', 'Anda', 'Batuan', 'Bilar', 'Candijay', 'Dimiao', 'Duero', 'Garcia Hernandez', 
+            'Guindulman', 'Jagna', 'Lila', 'Loay', 'Loboc', 'Mabini', 'Pilar', 'Sevilla', 
+            'Sierra Bullones', 'Valencia', 'Vallehermoso', 'San Isidro'
+        ];
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'slide-in flex items-center gap-2 bg-slate-800 text-white px-4 py-3 rounded-xl text-sm font-medium shadow-lg pointer-events-all';
+            toast.innerHTML = (type === 'error' ? '<span class="text-red-400 text-lg">✕</span>' : '<span class="text-green-400 text-lg">✓</span>') + '<span>' + message + '</span>';
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        function esc(str) { if (!str) return ''; return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+        function toApiName(displayName) {
+            if (displayName === 'Tagbilaran City') return 'City of Tagbilaran';
+            return displayName;
+        }
+
+        function toDisplayName(apiName) {
+            if (apiName === 'City of Tagbilaran') return 'Tagbilaran City';
+            return apiName;
+        }
+
+        async function fetchMunicipalities() {
+            try {
+                const response = await fetch('https://psgc.gitlab.io/api/provinces/071200000/cities-municipalities.json');
+                if (!response.ok) throw new Error('Failed to fetch municipalities');
+                const data = await response.json();
+                municipalities = data.filter(item => item.isMunicipality === true || item.isCity === true);
+                console.log(`Fetched ${municipalities.length} municipalities`);
+                return municipalities;
+            } catch (err) {
+                console.error('Error fetching municipalities:', err);
+                return [];
+            }
+        }
+
+        async function fetchBarangays() {
+            try {
+                const response = await fetch('https://psgc.gitlab.io/api/provinces/071200000/barangays.json');
+                if (!response.ok) throw new Error('Failed to fetch barangays');
+                const data = await response.json();
+                barangays = data;
+                console.log(`Fetched ${barangays.length} barangays`);
+                
+                barangaysByCode.clear();
+                for (const brgy of barangays) {
+                    const code = brgy.municipalityCode || brgy.cityCode;
+                    if (code) {
+                        if (!barangaysByCode.has(code)) {
+                            barangaysByCode.set(code, []);
+                        }
+                        barangaysByCode.get(code).push(brgy);
+                    }
+                }
+                return barangays;
+            } catch (err) {
+                console.error('Error fetching barangays:', err);
+                return [];
+            }
+        }
+
+        function getMunicipalityByName(name) {
+            return municipalities.find(m => m.name === name);
+        }
+
+        function getBarangaysByMunicipalityName(munName) {
+            const mun = getMunicipalityByName(munName);
+            if (!mun) {
+                console.warn(`Municipality not found: ${munName}`);
+                return [];
+            }
+            const barangaysList = barangaysByCode.get(mun.code) || [];
+            return barangaysList;
+        }
+
+        function getMunicipalitiesByDistrict(district) {
+            let municipalityNames = [];
+            if (district === '1') municipalityNames = DISTRICT_1_MUNICIPALITIES;
+            else if (district === '2') municipalityNames = DISTRICT_2_MUNICIPALITIES;
+            else if (district === '3') municipalityNames = DISTRICT_3_MUNICIPALITIES;
+            else return municipalities;
+            
+            return municipalities.filter(mun => municipalityNames.includes(mun.name));
+        }
+
+        window.onDistrictChange = function() {
+            const districtValue = document.getElementById('district').value;
+            const munSelect = document.getElementById('municipality');
+            const filteredMuns = getMunicipalitiesByDistrict(districtValue);
+            const sorted = [...filteredMuns].sort((a, b) => a.name.localeCompare(b.name));
+            munSelect.innerHTML = '<option value="">Select Municipality</option>';
+            for (const mun of sorted) {
+                const option = document.createElement('option');
+                option.value = mun.name;
+                option.textContent = toDisplayName(mun.name);
+                munSelect.appendChild(option);
+            }
+            document.getElementById('barangay').innerHTML = '<option value="">Select Barangay</option>';
+        };
+
+        window.onMunicipalityChange = function() {
+            const displayName = document.getElementById('municipality').value;
+            const apiName = toApiName(displayName);
+            const bgySelect = document.getElementById('barangay');
+            bgySelect.innerHTML = '<option value="">Select Barangay</option>';
+            if (!apiName) return;
+            
+            const barangaysList = getBarangaysByMunicipalityName(apiName);
+            const sorted = [...barangaysList].sort((a, b) => a.name.localeCompare(b.name));
+            for (const brgy of sorted) {
+                const option = document.createElement('option');
+                option.value = brgy.name;
+                option.textContent = brgy.name;
+                bgySelect.appendChild(option);
+            }
+        };
+
+        async function loadData() {
+            await Promise.all([fetchMunicipalities(), fetchBarangays()]);
+            try {
+                const schRes = await sb.from('schools').select('*').order('school_name', { ascending: true });
+                if (schRes.error) throw schRes.error;
+                allSchools = schRes.data || [];
+                isLoading = false;
+                console.log(`Loaded ${allSchools.length} schools from database`);
+                applyFilters();
+            } catch (err) {
+                console.error(err);
+                isLoading = false;
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="6" class="text-center py-12 text-red-500">Failed to load schools. Please refresh.</td></tr>';
+            }
+        }
+
+        function applyFilters() {
+            const districtFilter = document.getElementById('filterDistrict').value;
+            const searchFilter = document.getElementById('filterSearch').value.toLowerCase();
+            filteredSchools = allSchools.slice();
+            if (districtFilter) filteredSchools = filteredSchools.filter(s => s.district == districtFilter);
+            if (searchFilter) filteredSchools = filteredSchools.filter(s =>
+                (s.school_name || '').toLowerCase().includes(searchFilter) ||
+                (s.municipality || '').toLowerCase().includes(searchFilter) ||
+                (s.barangay || '').toLowerCase().includes(searchFilter)
+            );
+            document.getElementById('countBadge').textContent = filteredSchools.length + ' school' + (filteredSchools.length !== 1 ? 's' : '');
+            currentPage = 1;
+            renderPagination();
+            renderCurrentPage();
+        }
+
+        function renderCurrentPage() {
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            renderTable(filteredSchools.slice(startIndex, startIndex + rowsPerPage), startIndex);
+            updatePaginationInfo();
+        }
+
+        function renderTable(schools, startIndex) {
+            const tbody = document.getElementById('tableBody');
+            if (!schools.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12"><div class="flex flex-col items-center gap-2"><span class="text-4xl">📭</span><span class="text-slate-400 text-sm">No schools found. Click "+ Add New School" to add one.</span></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = schools.map((school, i) => {
+                const rowNumber = startIndex + i + 1;
+                let districtColor = 'bg-green-600';
+                if (school.district == '1') districtColor = 'bg-blue-500';
+                else if (school.district == '2') districtColor = 'bg-pink-500';
+                else if (school.district == '3') districtColor = 'bg-green-600';
+                return `
+                <tr class="table-row-hover transition-colors">
+                    <td class="px-6 py-3 text-slate-500 text-xs">${rowNumber}</td>
+                    <td class="px-6 py-3 font-semibold text-slate-800">${esc(school.school_name)}</td>
+                    <td class="px-6 py-3"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold text-white ${districtColor}">District ${school.district || '1'}</span></td>
+                    <td class="px-6 py-3 text-slate-700">${esc(toDisplayName(school.municipality || '—'))}</td>
+                    <td class="px-6 py-3 text-slate-700">${esc(school.barangay || '—')}</td>
+                    <td class="px-6 py-3">
+                        <div class="flex gap-1.5 justify-center">
+                            <button class="edit-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-600 transition flex items-center justify-center text-sm" data-id="${school.id}" onclick="window.handleEditClick('${school.id}')">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="delete-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 transition flex items-center justify-center text-sm" data-id="${school.id}" onclick="window.handleDeleteClick('${school.id}')">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        window.handleEditClick = function(id) {
+            editSchool(id);
+        };
+
+        window.handleDeleteClick = function(id) {
+            deleteSchool(id);
+        };
+
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredSchools.length / rowsPerPage);
+            const pagDiv = document.getElementById('paginationNumbers');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            if (totalPages <= 1) {
+                pagDiv.innerHTML = '';
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                return;
+            }
+            prevBtn.disabled = (currentPage === 1);
+            nextBtn.disabled = (currentPage === totalPages);
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            let html = '';
+            if (startPage > 1) {
+                html += `<button class="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-semibold hover:border-teal-400 page-num" data-page="1">1</button>`;
+                if (startPage > 2) html += `<span class="text-slate-400 px-1">...</span>`;
+            }
+            for (let i = startPage; i <= endPage; i++) {
+                const active = i === currentPage ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:border-teal-400';
+                html += `<button class="w-9 h-9 rounded-lg border text-sm font-semibold transition page-num ${active}" data-page="${i}">${i}</button>`;
+            }
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += `<span class="text-slate-400 px-1">...</span>`;
+                html += `<button class="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-semibold page-num" data-page="${totalPages}">${totalPages}</button>`;
+            }
+            pagDiv.innerHTML = html;
+            document.querySelectorAll('.page-num').forEach(el => el.addEventListener('click', () => {
+                currentPage = parseInt(el.dataset.page);
+                renderPagination();
+                renderCurrentPage();
+            }));
+        }
+
+        function updatePaginationInfo() {
+            const startItem = (currentPage - 1) * rowsPerPage + 1;
+            const endItem = Math.min(startItem + rowsPerPage - 1, filteredSchools.length);
+            document.getElementById('paginationInfo').textContent = filteredSchools.length ? `Showing ${startItem} - ${endItem} of ${filteredSchools.length}` : 'No records';
+        }
+
+        async function editSchool(id) {
+            if (isLoading) {
+                showToast('Data is still loading, please wait...', 'error');
+                return;
+            }
+            
+            const school = allSchools.find(s => s.id == id);
+            if (!school) {
+                showToast('School record not found. Please refresh the page.', 'error');
+                return;
+            }
+            
+            currentEditId = id;
+            document.getElementById('schoolId').value = school.id;
+            document.getElementById('schoolName').value = school.school_name;
+            document.getElementById('district').value = school.district || '';
+            
+            window.onDistrictChange();
+            
+            const storedMunName = school.municipality;
+            const apiMunName = toApiName(storedMunName);
+            
+            const munObj = municipalities.find(m => m.name === apiMunName);
+            if (munObj) {
+                setTimeout(() => {
+                    const munSelect = document.getElementById('municipality');
+                    munSelect.value = munObj.name;
+                    window.onMunicipalityChange();
+                    setTimeout(() => {
+                        document.getElementById('barangay').value = school.barangay || '';
+                    }, 200);
+                }, 150);
+            } else {
+                document.getElementById('municipality').value = '';
+                document.getElementById('barangay').innerHTML = '<option value="">Select Barangay</option>';
+            }
+            
+            document.getElementById('formTitle').textContent = 'Edit School';
+            document.getElementById('schoolForm').classList.remove('hidden');
+            const toggleBtn = document.getElementById('toggleFormBtn');
+            if (toggleBtn) toggleBtn.classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function deleteSchool(id) {
+            if (!confirm('Delete this school permanently?')) return;
+            try {
+                const { error } = await sb.from('schools').delete().eq('id', id);
+                if (error) throw error;
+                allSchools = allSchools.filter(s => s.id != id);
+                applyFilters();
+                showToast('School deleted successfully');
+            } catch (err) {
+                showToast('Delete failed: ' + err.message, 'error');
+            }
+        }
+
+        async function saveSchool() {
+            const name = document.getElementById('schoolName').value.trim();
+            const district = document.getElementById('district').value;
+            const municipalityValue = document.getElementById('municipality').value;
+            const barangay = document.getElementById('barangay').value;
+            
+            if (!name) { showToast('School name required', 'error'); return; }
+            if (!district) { showToast('Select district', 'error'); return; }
+            if (!municipalityValue) { showToast('Select municipality', 'error'); return; }
+            if (!barangay) { showToast('Select barangay', 'error'); return; }
+            
+            const municipality = toDisplayName(municipalityValue);
+            const payload = { school_name: name, district, municipality, barangay };
+            
+            try {
+                let result;
+                if (currentEditId) {
+                    result = await sb.from('schools').update(payload).eq('id', currentEditId).select();
+                    if (result.error) throw result.error;
+                    const idx = allSchools.findIndex(s => s.id == currentEditId);
+                    if (idx !== -1 && result.data?.[0]) allSchools[idx] = result.data[0];
+                    showToast('School updated successfully');
+                } else {
+                    result = await sb.from('schools').insert([payload]).select();
+                    if (result.error) throw result.error;
+                    if (result.data?.[0]) allSchools.unshift(result.data[0]);
+                    showToast('School added successfully');
+                }
+                resetForm();
+                applyFilters();
+            } catch (err) {
+                showToast('Save failed: ' + err.message, 'error');
+            }
+        }
+
+        function resetForm() {
+            currentEditId = null;
+            document.getElementById('schoolId').value = '';
+            document.getElementById('schoolName').value = '';
+            document.getElementById('district').value = '';
+            document.getElementById('municipality').innerHTML = '<option value="">Select Municipality</option>';
+            document.getElementById('barangay').innerHTML = '<option value="">Select Barangay</option>';
+            document.getElementById('formTitle').textContent = 'Add New School';
+            document.getElementById('schoolForm').classList.add('hidden');
+            const toggleBtn = document.getElementById('toggleFormBtn');
+            if (toggleBtn) toggleBtn.classList.remove('hidden');
+        }
+
+        window.closeClearModal = function() {
+            document.getElementById('clearModal').classList.add('hidden');
+            document.getElementById('clearModal').classList.remove('flex');
+            document.getElementById('confirmDeleteInput').value = '';
+        };
+
+        async function deleteAllSchools() {
+            const confirmText = document.getElementById('confirmDeleteInput').value.trim();
+            if (confirmText !== 'DELETE') {
+                showToast('Please type DELETE to confirm', 'error');
+                return;
+            }
+            try {
+                const { data: schools, error: fetchError } = await sb.from('schools').select('id');
+                if (fetchError) throw fetchError;
+                
+                if (!schools || schools.length === 0) {
+                    showToast('No records to delete', 'error');
+                    return;
+                }
+                
+                let deletedCount = 0;
+                for (const school of schools) {
+                    const { error } = await sb.from('schools').delete().eq('id', school.id);
+                    if (!error) deletedCount++;
+                }
+                
+                allSchools = [];
+                filteredSchools = [];
+                currentPage = 1;
+                applyFilters();
+                window.closeClearModal();
+                showToast(`${deletedCount} school records have been permanently deleted`);
+            } catch (err) {
+                console.error('Delete all error:', err);
+                showToast('Failed to delete all records: ' + err.message, 'error');
+            }
+        }
+
+        function bindEvents() {
+            const toggleBtn = document.getElementById('toggleFormBtn');
+            const cancelBtn = document.getElementById('cancelFormBtn');
+            const saveBtn = document.getElementById('saveSchoolBtn');
+            const filterDistrict = document.getElementById('filterDistrict');
+            const filterSearch = document.getElementById('filterSearch');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            const modal = document.getElementById('clearModal');
+
+            if (toggleBtn) toggleBtn.onclick = () => { resetForm(); document.getElementById('schoolForm').classList.remove('hidden'); toggleBtn.classList.add('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+            if (cancelBtn) cancelBtn.onclick = resetForm;
+            if (saveBtn) saveBtn.onclick = saveSchool;
+            if (filterDistrict) filterDistrict.onchange = () => applyFilters();
+            if (filterSearch) filterSearch.oninput = () => applyFilters();
+            if (prevBtn) prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderPagination(); renderCurrentPage(); } };
+            if (nextBtn) nextBtn.onclick = () => { const total = Math.ceil(filteredSchools.length / rowsPerPage); if (currentPage < total) { currentPage++; renderPagination(); renderCurrentPage(); } };
+            if (clearAllBtn) clearAllBtn.onclick = () => { document.getElementById('clearModal').classList.remove('hidden'); document.getElementById('clearModal').classList.add('flex'); document.getElementById('confirmDeleteInput').value = ''; };
+            if (confirmDeleteBtn) confirmDeleteBtn.onclick = deleteAllSchools;
+            if (modal) modal.onclick = (e) => { if (e.target === modal) window.closeClearModal(); };
+            const deleteInput = document.getElementById('confirmDeleteInput');
+            if (deleteInput) deleteInput.onkeypress = (e) => { if (e.key === 'Enter') deleteAllSchools(); };
+        }
+
+        function init() {
+            bindEvents();
+            loadData();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+
+</body>
+</html>

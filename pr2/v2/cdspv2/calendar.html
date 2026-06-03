@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Monthly Events Calendar | CDSP Events Calendar</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="navbar.js" defer></script>
+
+    <style>
+        :root {
+            --forest:       #1a3a2a;
+            --forest-mid:   #2d5a3d;
+            --forest-light: #3d7a52;
+            --sage:         #7aad8a;
+            --sage-light:   #a8c9b0;
+            --sage-pale:    #d4e8da;
+            --sage-whisper: #eef5f0;
+            --cream:        #f7f4ef;
+            --parchment:    #ede8e0;
+            --moss:         #5c8a5e;
+            --fern:         #4a7c59;
+            --bark:         #3b2f1e;
+            --ink:          #1c2b20;
+            --muted:        #6b8572;
+            --accent-warm:  #c8a96e;
+            --accent-rust:  #b06a3a;
+            --complete-bg:  #e8f5ec;
+            --complete-fg:  #2d6e3e;
+            --incomplete-bg:#fef3e2;
+            --incomplete-fg:#8a5c1a;
+
+            --topbar-h:     60px;
+            --bottom-bar-h: 68px;
+
+            --font-display: 'Playfair Display', Georgia, serif;
+            --font-body:    'DM Sans', system-ui, sans-serif;
+            --font-mono:    'DM Mono', monospace;
+
+            --radius-xl:    20px;
+            --radius-lg:    14px;
+            --radius-md:    10px;
+            --radius-sm:    7px;
+
+            --shadow-leaf:  0 4px 24px rgba(26,58,42,0.13);
+            --shadow-deep:  0 12px 40px rgba(26,58,42,0.2);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--cream);
+            background-image:
+                radial-gradient(ellipse 70% 50% at 5% 0%, rgba(61,122,82,0.1) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 60% at 95% 100%, rgba(122,173,138,0.12) 0%, transparent 55%),
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233d7a52' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            min-height: 100vh;
+            color: var(--ink);
+        }
+
+        /* ── CONTENT AREA ── */
+        .cdsp-content-shift {
+            margin-top: var(--topbar-h);
+            margin-bottom: var(--bottom-bar-h);
+            padding: 24px 20px;
+            min-height: calc(100vh - var(--topbar-h) - var(--bottom-bar-h));
+        }
+
+        .calendar-page-container {
+            max-width: 1340px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(122,173,138,0.25);
+            border-radius: 28px;
+            box-shadow: var(--shadow-deep);
+            overflow: hidden;
+            animation: pageRise 0.5s cubic-bezier(0.22,1,0.36,1) both;
+        }
+
+        @keyframes pageRise {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── HEADER ── */
+        .cal-header {
+            background: linear-gradient(135deg, var(--forest) 0%, var(--forest-mid) 60%, var(--fern) 100%);
+            padding: 32px 36px 28px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cal-header::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='1.5' fill='%237aad8a' fill-opacity='0.15'/%3E%3Ccircle cx='0' cy='0' r='1.5' fill='%237aad8a' fill-opacity='0.1'/%3E%3Ccircle cx='80' cy='80' r='1.5' fill='%237aad8a' fill-opacity='0.1'/%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        .cal-header::after {
+            content: '🌿';
+            position: absolute; right: 36px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 80px; opacity: 0.12;
+            pointer-events: none;
+        }
+
+        .cal-header-inner { position: relative; z-index: 1; }
+
+        .cal-header-top {
+            display: flex; align-items: flex-start; gap: 18px; margin-bottom: 14px;
+        }
+        .cal-icon-wrap {
+            width: 56px; height: 56px; flex-shrink: 0;
+            background: rgba(122,173,138,0.2);
+            border: 1px solid rgba(122,173,138,0.35);
+            border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px;
+            backdrop-filter: blur(8px);
+        }
+        .cal-title {
+            font-family: var(--font-display);
+            font-size: clamp(22px, 4vw, 36px);
+            font-weight: 700;
+            color: #fff;
+            line-height: 1.1;
+            letter-spacing: -0.5px;
+        }
+        .cal-subtitle {
+            font-size: 12px; font-weight: 500;
+            color: var(--sage-light);
+            margin-top: 5px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+        }
+        .cal-desc {
+            font-size: 13px; color: rgba(212,232,218,0.8);
+            line-height: 1.6; max-width: 600px;
+            padding-left: 2px;
+            border-left: 2px solid rgba(122,173,138,0.5);
+            padding-left: 12px;
+        }
+
+        /* ── TOOLBAR ── */
+        .cal-toolbar {
+            background: var(--sage-whisper);
+            border-bottom: 1px solid rgba(122,173,138,0.2);
+            padding: 12px 24px;
+            display: flex; flex-wrap: wrap; align-items: center;
+            justify-content: space-between; gap: 10px;
+        }
+
+        .toolbar-group {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        }
+
+        .tool-pill {
+            display: flex; align-items: center; gap: 7px;
+            background: #fff;
+            border: 1px solid rgba(122,173,138,0.3);
+            border-radius: var(--radius-sm);
+            padding: 6px 12px;
+            font-size: 12.5px; font-weight: 600;
+            color: var(--forest-mid);
+            box-shadow: 0 1px 4px rgba(26,58,42,0.07);
+        }
+        .tool-pill i { color: var(--moss); font-size: 11px; }
+        .tool-pill select {
+            background: transparent; border: none;
+            font-size: 12.5px; font-weight: 600;
+            color: var(--forest-mid); cursor: pointer;
+            font-family: var(--font-body);
+            outline: none;
+        }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: var(--radius-sm);
+            font-size: 12.5px; font-weight: 600;
+            cursor: pointer; border: none;
+            font-family: var(--font-body);
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background: var(--forest-mid);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(45,90,61,0.3);
+        }
+        .btn-primary:hover { background: var(--forest); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(45,90,61,0.4); }
+
+        .btn-outline {
+            background: #fff;
+            color: var(--forest-mid);
+            border: 1px solid rgba(122,173,138,0.4);
+        }
+        .btn-outline:hover { background: var(--sage-whisper); border-color: var(--sage); }
+
+        .btn-warm {
+            background: var(--accent-warm);
+            color: var(--bark);
+            box-shadow: 0 2px 8px rgba(200,169,110,0.3);
+        }
+        .btn-warm:hover { background: #b89558; transform: translateY(-1px); }
+
+        .print-group {
+            display: flex; align-items: center; gap: 7px;
+            background: rgba(200,169,110,0.1);
+            border: 1px solid rgba(200,169,110,0.3);
+            border-radius: var(--radius-md);
+            padding: 7px 12px;
+        }
+        .print-group i { color: var(--accent-warm); font-size: 13px; }
+        .print-group select {
+            background: #fff;
+            border: 1px solid rgba(122,173,138,0.25);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: var(--forest-mid);
+            font-family: var(--font-body);
+            font-weight: 500;
+        }
+
+        /* ── CALENDAR GRID ── */
+        .cal-body { padding: 20px 24px 24px; }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+
+        .weekday-header {
+            text-align: center;
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            padding: 10px 4px;
+            color: var(--forest-mid);
+            background: var(--sage-pale);
+            border-radius: var(--radius-sm);
+        }
+
+        .calendar-day {
+            background: #fff;
+            border: 1px solid rgba(122,173,138,0.18);
+            border-radius: var(--radius-lg);
+            min-height: 100px;
+            padding: 8px 7px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .calendar-day:hover {
+            border-color: var(--sage);
+            box-shadow: 0 4px 16px rgba(61,122,82,0.12);
+            transform: translateY(-1px);
+        }
+        .calendar-day.other-month {
+            background: rgba(255,255,255,0.45);
+            border-color: rgba(122,173,138,0.08);
+            opacity: 0.55;
+        }
+        .calendar-day.today {
+            background: linear-gradient(135deg, rgba(61,122,82,0.07), rgba(122,173,138,0.08));
+            border: 2px solid var(--forest-light);
+            box-shadow: 0 0 0 3px rgba(61,122,82,0.08), 0 4px 14px rgba(61,122,82,0.12);
+        }
+
+        .day-number {
+            font-family: var(--font-display);
+            font-size: 16px; font-weight: 700;
+            color: var(--forest);
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+        .calendar-day.other-month .day-number { color: #b8c9be; }
+        .calendar-day.today .day-number {
+            color: var(--forest-light);
+            font-size: 17px;
+        }
+        .calendar-day.today .day-number::after {
+            content: '';
+            display: block;
+            width: 20px; height: 2.5px;
+            background: var(--forest-light);
+            border-radius: 2px;
+            margin-top: 3px;
+        }
+
+        .events-stack { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+
+        .event-badge {
+            cursor: pointer;
+            font-size: 10px; font-weight: 600;
+            padding: 3px 6px;
+            border-radius: 5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            transition: all 0.15s ease;
+            line-height: 1.4;
+            border-left: 3px solid transparent;
+        }
+        .event-badge.complete {
+            background: var(--complete-bg);
+            color: var(--complete-fg);
+            border-left-color: #3d9e55;
+        }
+        .event-badge.incomplete {
+            background: var(--incomplete-bg);
+            color: var(--incomplete-fg);
+            border-left-color: var(--accent-rust);
+        }
+        .event-badge:hover {
+            transform: translateX(3px);
+            filter: brightness(0.94);
+            box-shadow: 2px 0 8px rgba(26,58,42,0.12);
+        }
+        .more-indicator {
+            font-size: 9.5px; font-weight: 700;
+            color: var(--muted); text-align: center;
+            padding: 1px 0;
+            font-family: var(--font-mono);
+        }
+
+        /* ── FOOTER ── */
+        .cal-footer {
+            background: var(--sage-whisper);
+            border-top: 1px solid rgba(122,173,138,0.18);
+            padding: 10px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11.5px; color: var(--muted);
+            flex-wrap: wrap; gap: 8px;
+        }
+        .cal-footer span { display: flex; align-items: center; gap: 5px; }
+        .cal-footer i { color: var(--sage); }
+        .cal-footer .mono { font-family: var(--font-mono); font-weight: 600; color: var(--forest-mid); }
+
+        /* ── EVENT MODAL ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(26,58,42,0.55);
+            backdrop-filter: blur(10px) saturate(140%);
+            z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: #fff;
+            border-radius: 24px;
+            max-width: 480px; width: 100%;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(26,58,42,0.3), 0 0 0 1px rgba(122,173,138,0.2);
+            animation: modalRise 0.3s cubic-bezier(0.22,1,0.36,1);
+        }
+        @keyframes modalRise {
+            from { opacity: 0; transform: translateY(24px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .modal-head {
+            background: linear-gradient(135deg, var(--forest), var(--forest-mid));
+            padding: 20px 22px 18px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .modal-head h3 {
+            font-family: var(--font-display);
+            font-size: 18px; font-weight: 700;
+            color: #fff; line-height: 1.3;
+            max-width: 360px;
+        }
+        .modal-head h3 i { color: var(--sage-light); margin-right: 8px; font-size: 14px; }
+        .modal-close-btn {
+            background: rgba(255,255,255,0.15); border: none;
+            width: 30px; height: 30px; border-radius: 50%;
+            color: #fff; font-size: 15px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; margin-left: 10px;
+            transition: all 0.2s;
+        }
+        .modal-close-btn:hover { background: rgba(255,255,255,0.28); transform: rotate(90deg); }
+
+        .modal-body { padding: 20px 22px 8px; }
+
+        .modal-row {
+            display: flex; gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(122,173,138,0.12);
+            font-size: 13.5px;
+        }
+        .modal-row:last-child { border-bottom: none; }
+        .modal-label {
+            font-weight: 700; min-width: 88px;
+            color: var(--muted); font-size: 11px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding-top: 2px;
+        }
+        .modal-value { color: var(--ink); flex: 1; font-weight: 500; line-height: 1.5; }
+
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700;
+        }
+        .status-complete   { background: var(--complete-bg);   color: var(--complete-fg); }
+        .status-incomplete { background: var(--incomplete-bg); color: var(--incomplete-fg); }
+
+        .modal-foot {
+            padding: 14px 22px 20px;
+        }
+        .btn-close-modal {
+            width: 100%;
+            background: var(--sage-pale);
+            color: var(--forest-mid);
+            border: 1px solid rgba(122,173,138,0.3);
+            padding: 10px; border-radius: var(--radius-md);
+            font-size: 13px; font-weight: 700;
+            cursor: pointer; font-family: var(--font-body);
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            transition: all 0.2s;
+        }
+        .btn-close-modal:hover { background: var(--sage-light); color: #fff; }
+
+        /* ── PRINT ── */
+        .print-header { display: none; }
+        .print-footer { display: none; }
+
+        @media print {
+            .cdsp-sidebar, .cdsp-topbar, .cdsp-mobile-bar,
+            .cdsp-bottom-bar, .no-print, .cal-toolbar, .cal-footer,
+            button, select { display: none !important; }
+
+            body { background: white; }
+
+            .cdsp-content-shift { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+            .calendar-page-container { max-width: 100%; box-shadow: none; border: none; border-radius: 0; background: white; }
+            .cal-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .calendar-grid { display: grid !important; grid-template-columns: repeat(7,1fr) !important; gap: 4px !important; }
+            .calendar-day { break-inside: avoid; min-height: 70px; border: 1px solid #cdd8c5; }
+            .weekday-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .event-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; border: 1px solid rgba(0,0,0,0.1); }
+            .print-header { display: block !important; padding: 0 0 12px; margin-bottom: 16px; border-bottom: 2px solid var(--forest-mid); }
+            .print-footer { display: flex !important; justify-content: space-between; margin-top: 16px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9px; color: #666; }
+            @page { size: landscape; margin: 1cm; }
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 900px) {
+            .cdsp-content-shift { padding: 14px 12px; }
+            .cal-header { padding: 22px 20px 20px; }
+            .cal-header::after { display: none; }
+            .cal-body { padding: 12px 14px 18px; }
+            .calendar-day { min-height: 78px; padding: 6px 5px; }
+            .day-number { font-size: 13px; }
+            .event-badge { font-size: 9px; }
+            .weekday-header { font-size: 9.5px; padding: 8px 2px; }
+        }
+        @media (max-width: 600px) {
+            .calendar-day { min-height: 60px; padding: 5px 4px; border-radius: 8px; }
+            .day-number { font-size: 12px; }
+            .event-badge { font-size: 8.5px; padding: 2px 4px; }
+            .cal-toolbar { padding: 10px 14px; }
+        }
+    </style>
+</head>
+
+<body>
+<div class="cdsp-content-shift">
+    <div class="calendar-page-container">
+
+        <!-- PRINT HEADER -->
+        <div class="print-header">
+            <div style="font-size:18px;font-weight:bold;color:#1a3a2a;">🌿 Monthly Event Calendar</div>
+            <div style="font-size:11px;color:#5c8a5e;margin-top:3px;">Career Development Support Program — Bohol Province</div>
+        </div>
+
+        <!-- PAGE HEADER -->
+        <div class="cal-header no-print">
+            <div class="cal-header-inner">
+                <div class="cal-header-top">
+                    <div class="cal-icon-wrap">🌿</div>
+                    <div>
+                        <div class="cal-title">Monthly Event Calendar</div>
+                        <div class="cal-subtitle">Career Development Support Program · Bohol Province</div>
+                    </div>
+                </div>
+                <div class="cal-desc">
+                    Track and monitor all CDSP events across Bohol province. Visualize program implementation and identify coverage gaps.
+                </div>
+            </div>
+        </div>
+
+        <!-- TOOLBAR -->
+        <div class="cal-toolbar no-print">
+            <div class="toolbar-group">
+                <div class="tool-pill">
+                    <i class="fas fa-calendar-alt"></i>
+                    <select id="yearFilter"></select>
+                </div>
+                <div class="tool-pill">
+                    <i class="fas fa-leaf"></i>
+                    <select id="monthFilter"></select>
+                </div>
+                <button id="refreshCalendarBtn" class="btn btn-primary">
+                    <i class="fas fa-sync-alt"></i><span class="hide-xs">Refresh</span>
+                </button>
+                <button id="resetTodayBtn" class="btn btn-outline">
+                    <i class="fas fa-calendar-day"></i><span class="hide-xs">Today</span>
+                </button>
+            </div>
+
+            <div class="print-group no-print">
+                <i class="fas fa-print"></i>
+                <select id="printPaperSize">
+                    <option value="A4">A4</option>
+                    <option value="SHORT">Short</option>
+                    <option value="LONG">Long</option>
+                </select>
+                <select id="printOrientation">
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape" selected>Landscape</option>
+                </select>
+                <select id="printMonthSelect">
+                    <option value="current">Current</option>
+                </select>
+                <button id="printButton" class="btn btn-warm">
+                    <i class="fas fa-print"></i><span class="hide-xs">Print</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- CALENDAR GRID -->
+        <div class="cal-body">
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="cal-footer no-print">
+            <span><i class="fas fa-user-circle"></i> User: <span class="mono" id="dynamicUserId">CDSP-</span><span class="mono" id="randomSuffix"></span></span>
+            <span><i class="fas fa-clock"></i> Generated: <span id="footerDate"></span></span>
+        </div>
+
+        <!-- PRINT FOOTER -->
+        <div class="print-footer">
+            <div>User: <span id="printUserId"></span></div>
+            <div>Career Development Support Program — BEPO-PESO</div>
+            <div id="printDate"></div>
+        </div>
+
+    </div><!-- /.calendar-page-container -->
+</div><!-- /.cdsp-content-shift -->
+
+<!-- EVENT MODAL -->
+<div id="eventModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h3 id="modalEventTitle"><i class="fas fa-calendar-check"></i> Event Details</h3>
+            <button class="modal-close-btn" id="closeModalBtn">✕</button>
+        </div>
+        <div class="modal-body" id="modalDetailsContainer"></div>
+        <div class="modal-foot">
+            <button class="btn-close-modal" id="closeModalBtn2">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL      = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+
+    let supabaseClient       = null;
+    let isSupabaseReady      = false;
+    let allEvents            = [];
+    let currentDisplayYear   = new Date().getFullYear();
+    let currentDisplayMonth  = new Date().getMonth();
+
+    const yearSelect         = document.getElementById('yearFilter');
+    const monthSelect        = document.getElementById('monthFilter');
+    const calendarGrid       = document.getElementById('calendarGrid');
+    const printMonthSelect   = document.getElementById('printMonthSelect');
+    const modalOverlay       = document.getElementById('eventModal');
+    const modalEventTitle    = document.getElementById('modalEventTitle');
+    const modalDetails       = document.getElementById('modalDetailsContainer');
+
+    /* ── helpers ── */
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return 'No date';
+        return new Date(dateStr).toLocaleDateString('en-PH', { year:'numeric', month:'long', day:'numeric' });
+    }
+
+    /* ── modal ── */
+    function showEventDetails(id) {
+        const ev = allEvents.find(e => e.id == id);
+        if (!ev) return;
+
+        modalEventTitle.innerHTML = `<i class="fas fa-calendar-check"></i> ${escapeHtml(ev.event_name || 'Untitled Event')}`;
+
+        const loc = [ev.district ? `District ${ev.district}` : null, ev.municipality, ev.barangay, ev.school_name ? `🏫 ${ev.school_name}` : null]
+                      .filter(Boolean).map(escapeHtml).join(' · ') || 'Not specified';
+
+        const isComplete = ev.status === 'Complete';
+        const statusHtml = `<span class="status-pill ${isComplete ? 'status-complete' : 'status-incomplete'}">${isComplete ? '✅' : '⚠️'} ${escapeHtml(ev.status || 'Incomplete')}</span>`;
+
+        modalDetails.innerHTML = `
+            <div class="modal-row"><span class="modal-label">ID</span><span class="modal-value" style="font-family:var(--font-mono)">#${ev.id}</span></div>
+            <div class="modal-row"><span class="modal-label">Date</span><span class="modal-value">${escapeHtml(formatDate(ev.event_date))}</span></div>
+            <div class="modal-row"><span class="modal-label">Location</span><span class="modal-value">${loc}</span></div>
+            <div class="modal-row"><span class="modal-label">Venue</span><span class="modal-value">${escapeHtml(ev.venue || '—')}</span></div>
+            <div class="modal-row"><span class="modal-label">Students</span><span class="modal-value" style="font-weight:700">${ev.total_students ?? 0}</span></div>
+            <div class="modal-row"><span class="modal-label">Status</span><span class="modal-value">${statusHtml}</span></div>
+            <div class="modal-row"><span class="modal-label">Notes</span><span class="modal-value" style="color:var(--muted)">${escapeHtml(ev.description || '—')}</span></div>
+        `;
+        modalOverlay.classList.add('active');
+    }
+
+    function closeModal() { modalOverlay.classList.remove('active'); }
+
+    /* ── supabase ── */
+    async function initSupabase() {
+        try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const { error } = await supabaseClient.from('cdsp_events').select('id', { count:'exact', head:true });
+            if (!error) isSupabaseReady = true;
+        } catch(e) { loadMockEvents(); }
+    }
+
+    function loadMockEvents() {
+        const yr = new Date().getFullYear();
+        allEvents = [
+            { id:201, event_name:"Bohol CDSP Summit",    district:"1", municipality:"Tagbilaran City", barangay:"Cogon",      school_name:"BVHS",     event_date:`${yr}-03-15`, venue:"Bohol Cultural Center", total_students:320, description:"Annual planning",      status:"Complete"   },
+            { id:202, event_name:"Youth Leadership Camp", district:"2", municipality:"Ubay",           barangay:"San Pascual", school_name:"Ubay NHS",  event_date:`${yr}-03-22`, venue:"Municipal Gym",        total_students:180, description:"Leadership training", status:"Incomplete" },
+            { id:203, event_name:"Coastal Cleanup",       district:"3", municipality:"Jagna",          barangay:"Can-uba",    school_name:"Jagna CES", event_date:`${yr}-04-05`, venue:"Seaside",              total_students:95,  description:"Environment awareness",status:"Incomplete" }
+        ];
+        renderCalendar();
+    }
+
+    async function fetchEvents() {
+        if (!supabaseClient || !isSupabaseReady) return;
+        try {
+            const { data, error } = await supabaseClient.from('cdsp_events').select('*').order('event_date');
+            if (!error && data) allEvents = data;
+        } catch(e) { console.error(e); }
+    }
+
+    /* ── calendar render ── */
+    function renderCalendar() {
+        const year  = currentDisplayYear;
+        const month = currentDisplayMonth;
+        const firstDay    = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month+1, 0).getDate();
+        const prevMonthDays = new Date(year, month, 0).getDate();
+        const today = new Date();
+        const isCurrent = today.getFullYear() === year && today.getMonth() === month;
+
+        // index events by day
+        const byDay = {};
+        allEvents.forEach(ev => {
+            if (!ev.event_date) return;
+            const d = new Date(ev.event_date);
+            if (d.getFullYear() === year && d.getMonth() === month) {
+                const day = d.getDate();
+                (byDay[day] = byDay[day] || []).push(ev);
+            }
+        });
+
+        const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        let html = weekdays.map(w => `<div class="weekday-header">${w}</div>`).join('');
+
+        let counter = 1;
+        for (let i = 0; i < 42; i++) {
+            let num, other = false;
+            if (i < firstDay) {
+                num = prevMonthDays - (firstDay - i) + 1; other = true;
+            } else if (counter <= daysInMonth) {
+                num = counter++;
+            } else {
+                num = counter - daysInMonth; other = true; counter++;
+            }
+
+            const isToday = !other && isCurrent && num === today.getDate();
+            const evs = (!other && byDay[num]) ? byDay[num] : [];
+
+            let badgesHtml = '';
+            if (evs.length) {
+                badgesHtml = '<div class="events-stack">';
+                evs.slice(0,2).forEach(ev => {
+                    const cls  = ev.status === 'Complete' ? 'complete' : 'incomplete';
+                    const icon = ev.status === 'Complete' ? '✓' : '!';
+                    const name = ev.event_name.length > 18 ? ev.event_name.substring(0,16)+'…' : ev.event_name;
+                    badgesHtml += `<div class="event-badge ${cls}" data-id="${ev.id}" title="${escapeHtml(ev.event_name)}">${icon} ${escapeHtml(name)}</div>`;
+                });
+                if (evs.length > 2) badgesHtml += `<div class="more-indicator">+${evs.length-2} more</div>`;
+                badgesHtml += '</div>';
+            }
+
+            const cls = other ? 'other-month' : isToday ? 'today' : '';
+            html += `<div class="calendar-day ${cls}">
+                        <div class="day-number">${num}</div>
+                        ${badgesHtml}
+                     </div>`;
+        }
+
+        calendarGrid.innerHTML = html;
+
+        calendarGrid.querySelectorAll('.event-badge[data-id]').forEach(el => {
+            el.addEventListener('click', e => { e.stopPropagation(); showEventDetails(parseInt(el.dataset.id)); });
+        });
+    }
+
+    /* ── selectors ── */
+    function populateYears() {
+        const base = new Date().getFullYear();
+        yearSelect.innerHTML = '';
+        for (let y = base-2; y <= base+4; y++) {
+            const o = document.createElement('option');
+            o.value = y; o.textContent = y;
+            if (y === currentDisplayYear) o.selected = true;
+            yearSelect.appendChild(o);
+        }
+    }
+
+    function populateMonths() {
+        const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        monthSelect.innerHTML = '';
+        names.forEach((n,i) => {
+            const o = document.createElement('option');
+            o.value = i; o.textContent = n;
+            if (i === currentDisplayMonth) o.selected = true;
+            monthSelect.appendChild(o);
+        });
+    }
+
+    function updatePrintMonths() {
+        printMonthSelect.innerHTML = '<option value="current">📌 Current View</option>';
+        const seen = new Set();
+        allEvents.forEach(ev => {
+            if (!ev.event_date) return;
+            const d = new Date(ev.event_date);
+            if (isNaN(d)) return;
+            const k = `${d.getFullYear()}-${d.getMonth()}`;
+            if (!seen.has(k)) {
+                seen.add(k);
+                const label = new Date(d.getFullYear(), d.getMonth()).toLocaleString('default',{month:'long'}) + ' ' + d.getFullYear();
+                printMonthSelect.innerHTML += `<option value="${k}">${label}</option>`;
+            }
+        });
+    }
+
+    /* ── print ── */
+    function doPrint() {
+        let py = currentDisplayYear, pm = currentDisplayMonth;
+        const v = printMonthSelect.value;
+        if (v !== 'current') {
+            const [y,m] = v.split('-').map(Number);
+            if (!isNaN(y) && !isNaN(m)) { py = y; pm = m; }
+        }
+        const origY = currentDisplayYear, origM = currentDisplayMonth;
+        currentDisplayYear = py; currentDisplayMonth = pm;
+        renderCalendar();
+
+        const paper = document.getElementById('printPaperSize').value;
+        const orient= document.getElementById('printOrientation').value;
+        const sizeMap = { A4:'A4', SHORT:'8.5in 11in', LONG:'8.5in 13in' };
+        const st = document.createElement('style');
+        st.id = 'dynPrintStyle';
+        st.textContent = `@page { size: ${sizeMap[paper] || 'A4'} ${orient}; margin: 1cm; }`;
+        document.getElementById('dynPrintStyle')?.remove();
+        document.head.appendChild(st);
+
+        window.print();
+
+        currentDisplayYear = origY; currentDisplayMonth = origM;
+        renderCalendar();
+        st.remove();
+    }
+
+    /* ── footer ── */
+    function updateFooter() {
+        const now = new Date();
+        const fmt = now.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+        document.getElementById('footerDate').textContent = fmt;
+        const pdate = document.getElementById('printDate');
+        if (pdate) pdate.textContent = `Printed: ${fmt}`;
+    }
+
+    /* ── init ── */
+    async function initApp() {
+        populateYears();
+        populateMonths();
+
+        const sfx = Math.floor(Math.random()*10000).toString().padStart(4,'0');
+        document.getElementById('randomSuffix').textContent  = sfx;
+        document.getElementById('dynamicUserId').textContent = `CDSP-${sfx}`;
+        const pid = document.getElementById('printUserId');
+        if (pid) pid.textContent = `CDSP-${sfx}`;
+        updateFooter();
+
+        await initSupabase();
+        if (supabaseClient && isSupabaseReady) await fetchEvents();
+        else if (!allEvents.length) loadMockEvents();
+
+        renderCalendar();
+        updatePrintMonths();
+
+        yearSelect.addEventListener('change', () => { currentDisplayYear = +yearSelect.value; renderCalendar(); });
+        monthSelect.addEventListener('change', () => { currentDisplayMonth = +monthSelect.value; renderCalendar(); });
+        document.getElementById('resetTodayBtn').addEventListener('click', () => {
+            const t = new Date();
+            currentDisplayYear = t.getFullYear(); currentDisplayMonth = t.getMonth();
+            yearSelect.value = currentDisplayYear; monthSelect.value = currentDisplayMonth;
+            renderCalendar();
+        });
+        document.getElementById('refreshCalendarBtn').addEventListener('click', async () => {
+            if (supabaseClient && isSupabaseReady) await fetchEvents();
+            renderCalendar(); updatePrintMonths();
+        });
+        document.getElementById('printButton').addEventListener('click', doPrint);
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('closeModalBtn2').addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+    }
+
+    initApp();
+</script>
+</body>
+</html>

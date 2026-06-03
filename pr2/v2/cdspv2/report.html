@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>CDSP Reports | BEPO-PESO</title>
+
+    <!-- ==================== DEPENDENCIES ==================== -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- ==================== TAILWIND CONFIG ==================== -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Playfair Display', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- ==================== CUSTOM STYLES ==================== -->
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .stat-card-hover:hover { transform: translateY(-2px); }
+        .transition-all-300 { transition: all 0.3s ease; }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 fade-in">
+
+        <!-- ==================== PAGE HEADER ==================== -->
+        <div class="mb-4">
+            <h2 class="text-xl md:text-2xl font-display font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-chart-bar text-teal-600"></i> CDSP Reports & Analytics
+            </h2>
+            <p class="text-slate-400 text-xs mt-0.5">Comprehensive overview of all CDSP events and statistics</p>
+        </div>
+
+        <!-- ==================== STATS CARDS (COMPACT) ==================== -->
+        <div class="grid grid-cols-4 gap-3 mb-4">
+            <!-- Total Events -->
+            <div class="stat-card-hover bg-white rounded-xl shadow-sm border border-slate-200 p-3 text-center transition-all-300">
+                <div class="text-xl md:text-2xl font-mono font-bold text-teal-600" id="totalEvents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Events</p>
+            </div>
+            <!-- Total Students -->
+            <div class="stat-card-hover bg-white rounded-xl shadow-sm border border-slate-200 p-3 text-center transition-all-300">
+                <div class="text-xl md:text-2xl font-mono font-bold text-blue-600" id="totalStudents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Students</p>
+            </div>
+            <!-- Complete -->
+            <div class="stat-card-hover bg-white rounded-xl shadow-sm border border-slate-200 p-3 text-center transition-all-300">
+                <div class="text-xl md:text-2xl font-mono font-bold text-green-600" id="completeEvents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Complete</p>
+            </div>
+            <!-- Incomplete -->
+            <div class="stat-card-hover bg-white rounded-xl shadow-sm border border-slate-200 p-3 text-center transition-all-300">
+                <div class="text-xl md:text-2xl font-mono font-bold text-amber-600" id="incompleteEvents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Incomplete</p>
+            </div>
+        </div>
+
+        <!-- ==================== CHARTS GRID (COMPACT) ==================== -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            <!-- District Events Chart -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <h3 class="text-xs font-display font-bold text-slate-700 px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                    <i class="fas fa-map-pin text-blue-500 text-sm"></i> Events per District
+                </h3>
+                <div class="p-3">
+                    <canvas id="districtEventsChart" class="max-h-[200px] w-full"></canvas>
+                </div>
+            </div>
+
+            <!-- District Students Chart -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <h3 class="text-xs font-display font-bold text-slate-700 px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                    <i class="fas fa-user-graduate text-pink-500 text-sm"></i> Students per District
+                </h3>
+                <div class="p-3">
+                    <canvas id="districtStudentsChart" class="max-h-[200px] w-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Monthly Trends Chart (full width for better x-axis readability) -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <h3 class="text-xs font-display font-bold text-slate-700 px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                    <i class="fas fa-calendar-alt text-teal-500 text-sm"></i> Events by Month (Last 12 months)
+                </h3>
+                <div class="p-3">
+                    <canvas id="monthlyChart" class="max-h-[220px] w-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Status Distribution Chart -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <h3 class="text-xs font-display font-bold text-slate-700 px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                    <i class="fas fa-check-circle text-green-500 text-sm"></i> Status Distribution (Complete vs Incomplete)
+                </h3>
+                <div class="p-3 flex justify-center">
+                    <div class="w-full max-w-[280px]">
+                        <canvas id="statusChart" class="max-h-[200px] w-full"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TOP MUNICIPALITIES TABLE ==================== -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <h3 class="text-xs font-display font-bold text-slate-700 px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+                <i class="fas fa-trophy text-amber-500 text-sm"></i> Top 10 Municipalities by Number of Events
+            </h3>
+            <div class="overflow-x-auto">
+                <table id="topMunicipalitiesTable" class="w-full text-xs">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Municipality</th>
+                            <th class="px-4 py-2 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">District</th>
+                            <th class="px-4 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Events</th>
+                            <th class="px-4 py-2 text-center text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Students</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr><td colspan="4" class="text-center py-8 text-slate-400 text-xs">Loading data…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ==================== NAVBAR ==================== -->
+    <script src="navbar.js"></script>
+
+    <!-- ==================== MAIN SCRIPT ==================== -->
+    <script>
+    (function() {
+        'use strict';
+
+        // ═══════════════════════════════════════
+        // SUPABASE CONFIGURATION
+        // ═══════════════════════════════════════
+        const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let events = [];
+        let districtEventsChart, districtStudentsChart, statusChart, monthlyChart;
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function loadReports() {
+            try {
+                const { data, error } = await sb.from('cdsp_events').select('*');
+                if (error) throw error;
+                events = data || [];
+
+                // Stats
+                const totalEvents = events.length;
+                const totalStudents = events.reduce((sum, e) => sum + (e.total_students || 0), 0);
+                const complete = events.filter(e => e.status === 'Complete').length;
+                const incomplete = events.filter(e => e.status === 'Incomplete').length;
+
+                document.getElementById('totalEvents').innerText = totalEvents;
+                document.getElementById('totalStudents').innerText = totalStudents;
+                document.getElementById('completeEvents').innerText = complete;
+                document.getElementById('incompleteEvents').innerText = incomplete;
+
+                // District aggregations
+                const districtStats = { 1: { events: 0, students: 0 }, 2: { events: 0, students: 0 }, 3: { events: 0, students: 0 } };
+                events.forEach(e => {
+                    const d = e.district;
+                    if (districtStats[d]) {
+                        districtStats[d].events++;
+                        districtStats[d].students += (e.total_students || 0);
+                    }
+                });
+
+                const districtLabels = ['District 1', 'District 2', 'District 3'];
+                const eventCounts = [districtStats[1].events, districtStats[2].events, districtStats[3].events];
+                const studentCounts = [districtStats[1].students, districtStats[2].students, districtStats[3].students];
+
+                // District Events Chart (compact bar)
+                if (districtEventsChart) districtEventsChart.destroy();
+                districtEventsChart = new Chart(document.getElementById('districtEventsChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: districtLabels,
+                        datasets: [{
+                            label: 'Events',
+                            data: eventCounts,
+                            backgroundColor: ['#3b82f6', '#ec4899', '#10b981'],
+                            borderRadius: 4,
+                            borderSkipped: false,
+                            barThickness: 40,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: '#f1f5f9' } }
+                        }
+                    }
+                });
+
+                // District Students Chart (compact bar)
+                if (districtStudentsChart) districtStudentsChart.destroy();
+                districtStudentsChart = new Chart(document.getElementById('districtStudentsChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: districtLabels,
+                        datasets: [{
+                            label: 'Students',
+                            data: studentCounts,
+                            backgroundColor: ['#3b82f6', '#ec4899', '#10b981'],
+                            borderRadius: 4,
+                            borderSkipped: false,
+                            barThickness: 40,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                            y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' } }
+                        }
+                    }
+                });
+
+                // Status Chart (compact doughnut)
+                if (statusChart) statusChart.destroy();
+                statusChart = new Chart(document.getElementById('statusChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Complete', 'Incomplete'],
+                        datasets: [{
+                            data: [complete, incomplete],
+                            backgroundColor: ['#10b981', '#f59e0b'],
+                            borderWidth: 0,
+                            hoverOffset: 3,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { usePointStyle: true, padding: 16, font: { size: 10 } }
+                            }
+                        },
+                        cutout: '65%',
+                    }
+                });
+
+                // Monthly Trends (compact line with clear x/y axes)
+                const monthlyMap = new Map();
+                const now = new Date();
+                const last12Months = [];
+                for (let i = 11; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    const label = d.toLocaleString('default', { month: 'short' });
+                    last12Months.push({ key, label });
+                    monthlyMap.set(key, 0);
+                }
+
+                events.forEach(e => {
+                    if (e.created_at) {
+                        const date = new Date(e.created_at);
+                        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        if (monthlyMap.has(key)) monthlyMap.set(key, monthlyMap.get(key) + 1);
+                    }
+                });
+
+                const monthlyLabels = last12Months.map(m => m.label);
+                const monthlyData = last12Months.map(m => monthlyMap.get(m.key));
+
+                if (monthlyChart) monthlyChart.destroy();
+                monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+                    type: 'line',
+                    data: {
+                        labels: monthlyLabels,
+                        datasets: [{
+                            label: 'Events',
+                            data: monthlyData,
+                            borderColor: '#0f766e',
+                            backgroundColor: 'rgba(15, 118, 110, 0.06)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#0f766e',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1.5,
+                            pointHoverRadius: 5,
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                grid: { display: false },
+                                ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 0 }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1, font: { size: 10 } },
+                                grid: { color: '#f1f5f9' }
+                            }
+                        }
+                    }
+                });
+
+                // Top 10 Municipalities
+                const municipalityMap = new Map();
+                events.forEach(e => {
+                    if (!e.municipality) return;
+                    const mun = e.municipality;
+                    if (!municipalityMap.has(mun)) {
+                        municipalityMap.set(mun, { events: 0, students: 0, district: e.district });
+                    }
+                    const rec = municipalityMap.get(mun);
+                    rec.events++;
+                    rec.students += (e.total_students || 0);
+                });
+
+                const topMunicipalities = Array.from(municipalityMap.entries())
+                    .map(([name, data]) => ({ name, events: data.events, students: data.students, district: data.district }))
+                    .sort((a, b) => b.events - a.events)
+                    .slice(0, 10);
+
+                const tableBody = document.querySelector('#topMunicipalitiesTable tbody');
+                if (topMunicipalities.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400 text-xs">No data available</td></tr>';
+                } else {
+                    tableBody.innerHTML = topMunicipalities.map((m, i) => `
+                        <tr class="hover:bg-teal-50 transition-colors">
+                            <td class="px-4 py-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 rounded-full bg-teal-100 text-teal-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">${i + 1}</span>
+                                    <strong class="text-slate-800">${escapeHtml(m.name)}</strong>
+                                </div>
+                            </td>
+                            <td class="px-4 py-2">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white ${m.district == '1' ? 'bg-blue-500' : m.district == '2' ? 'bg-pink-500' : 'bg-green-600'}">
+                                    D${m.district}
+                                </span>
+                            </td>
+                            <td class="px-4 py-2 text-center font-mono text-slate-700">${m.events}</td>
+                            <td class="px-4 py-2 text-center font-mono text-slate-700">${m.students}</td>
+                        </tr>
+                    `).join('');
+                }
+
+            } catch (err) {
+                console.error('Report loading error:', err);
+                document.querySelector('#topMunicipalitiesTable tbody').innerHTML =
+                    '<tr><td colspan="4" class="text-center py-8 text-red-400 text-xs">Failed to load data</td></tr>';
+            }
+        }
+
+        function init() {
+            if (typeof window.renderCDSPNavbar === 'function') {
+                window.renderCDSPNavbar();
+            }
+            loadReports();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+
+</body>
+</html>

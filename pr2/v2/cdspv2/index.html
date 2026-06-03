@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>Dashboard | CDSP BEPO-PESO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Playfair Display', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+        .stat-card-hover:hover { transform: translateY(-4px); }
+        .transition-all-300 { transition: all 0.3s ease; }
+        .profile-image-ring {
+            box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1), 0 4px 12px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ═══════════ SECTION 1: GREETING ═══════════ -->
+    <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 mb-6 transition-all-300">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <!-- Left: Greeting Text -->
+            <div class="flex-1">
+                <p class="text-teal-600 font-semibold text-lg" id="greetingTime">Good Morning! ☀️</p>
+                <h2 class="text-2xl sm:text-3xl lg:text-4xl font-display font-bold text-slate-800 mt-1 tracking-tight">
+                    Welcome back, <span class="text-teal-600" id="greetingName">User</span>
+                </h2>
+                <p class="text-slate-400 text-sm mt-2" id="greetingDate">Loading date...</p>
+            </div>
+            
+            <!-- Right: Profile Picture -->
+            <div class="flex-shrink-0 flex items-center gap-3">
+                <div class="relative">
+                    <!-- Profile Image Container -->
+                    <div id="profileImageContainer" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-gradient-to-br from-teal-400 to-blue-500 profile-image-ring flex items-center justify-center">
+                        <!-- Default: initials (shown while loading or if no image) -->
+                        <span id="profileInitials" class="text-white text-2xl sm:text-3xl font-bold">BP</span>
+                        <!-- Profile image (hidden until loaded) -->
+                        <img id="profileImage" src="" alt="Profile" 
+                             class="hidden w-full h-full object-cover"
+                             onload="this.classList.remove('hidden'); document.getElementById('profileInitials').classList.add('hidden');"
+                             onerror="this.classList.add('hidden'); document.getElementById('profileInitials').classList.remove('hidden');" />
+                    </div>
+                    <!-- Online indicator dot -->
+                    <div class="absolute bottom-1 right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ SECTION 2: STATISTICS ═══════════ -->
+    <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 transition-all-300">
+        <div class="text-center mb-6">
+            <h3 class="text-xl sm:text-2xl font-display font-bold text-slate-800">
+                <i class="fas fa-chart-bar text-teal-500 mr-2"></i>CDSP Statistics Overview
+            </h3>
+            <p class="text-slate-400 text-sm mt-1">Career Development Support Program · BEPO-PESO Bohol</p>
+        </div>
+
+        <!-- Filter -->
+        <div class="flex justify-center items-center gap-3 mb-8 flex-wrap">
+            <label class="text-sm font-semibold text-slate-600">
+                <i class="fas fa-calendar-alt text-teal-500 mr-1"></i>Filter by Month:
+            </label>
+            <select id="filterMonth" onchange="applyFilter()"
+                class="px-5 py-2.5 border border-slate-300 rounded-full bg-white text-slate-700 text-sm font-medium focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none cursor-pointer min-w-[180px] text-center transition-all-300">
+                <option value="">All Months</option>
+                <option value="0">January</option>
+                <option value="1">February</option>
+                <option value="2">March</option>
+                <option value="3">April</option>
+                <option value="4">May</option>
+                <option value="5">June</option>
+                <option value="6">July</option>
+                <option value="7">August</option>
+                <option value="8">September</option>
+                <option value="9">October</option>
+                <option value="10">November</option>
+                <option value="11">December</option>
+            </select>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <!-- Total Events -->
+            <div class="stat-card-hover bg-teal-50 rounded-xl p-5 text-center border border-teal-100 transition-all-300">
+                <div class="text-3xl sm:text-4xl lg:text-5xl font-mono font-bold text-teal-600" id="statTotalEvents">0</div>
+                <p class="text-xs sm:text-sm font-semibold text-teal-700 uppercase tracking-wide mt-2">Total Events</p>
+            </div>
+
+            <!-- Total Students -->
+            <div class="stat-card-hover bg-blue-50 rounded-xl p-5 text-center border border-blue-100 transition-all-300">
+                <div class="text-3xl sm:text-4xl lg:text-5xl font-mono font-bold text-blue-600" id="statTotalStudents">0</div>
+                <p class="text-xs sm:text-sm font-semibold text-blue-700 uppercase tracking-wide mt-2">Total Students</p>
+            </div>
+
+            <!-- Complete -->
+            <div class="stat-card-hover bg-green-50 rounded-xl p-5 text-center border border-green-100 transition-all-300">
+                <div class="text-3xl sm:text-4xl lg:text-5xl font-mono font-bold text-green-600" id="statComplete">0</div>
+                <p class="text-xs sm:text-sm font-semibold text-green-700 uppercase tracking-wide mt-2">Complete</p>
+            </div>
+
+            <!-- Incomplete -->
+            <div class="stat-card-hover bg-amber-50 rounded-xl p-5 text-center border border-amber-100 transition-all-300">
+                <div class="text-3xl sm:text-4xl lg:text-5xl font-mono font-bold text-amber-600" id="statIncomplete">0</div>
+                <p class="text-xs sm:text-sm font-semibold text-amber-700 uppercase tracking-wide mt-2">Incomplete</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-xs text-slate-400 font-mono tracking-wide">
+        &copy; 2026 CDSP · Career Development Support Program · BEPO-PESO · Province of Bohol
+    </div>
+
+</main>
+
+<script src="navbar.js"></script>
+<script>
+(function() {
+    'use strict';
+
+    const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let allEvents = [];
+
+    // ═══════════════════════════════════════
+    // GET INITIALS
+    // ═══════════════════════════════════════
+    function getInitials(name) {
+        if (!name || name === 'User') return 'BP';
+        const parts = name.trim().split(' ');
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    }
+
+    // ═══════════════════════════════════════
+    // PHILIPPINES TIME
+    // ═══════════════════════════════════════
+    function getPHTime() {
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        return new Date(utc + (3600000 * 8));
+    }
+
+    function updateGreeting() {
+        const phNow = getPHTime();
+        const hour = phNow.getHours();
+        let greeting;
+
+        if (hour >= 5 && hour < 12) {
+            greeting = 'Good Morning! ☀️';
+        } else if (hour >= 12 && hour < 17) {
+            greeting = 'Good Afternoon! 🌤️';
+        } else if (hour >= 17 && hour < 20) {
+            greeting = 'Good Evening! 🌅';
+        } else {
+            greeting = 'Good Evening! 🌙';
+        }
+
+        document.getElementById('greetingTime').textContent = greeting;
+
+        const options = { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        };
+        document.getElementById('greetingDate').textContent = 
+            phNow.toLocaleDateString('en-US', options) + ' · ' + 
+            phNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' PHT';
+    }
+
+    // ═══════════════════════════════════════
+    // LOAD USER FULLNAME & PROFILE FROM members TABLE
+    // ═══════════════════════════════════════
+    async function loadUserProfile() {
+        const userId = sessionStorage.getItem('bepo_user_id') || 
+                      localStorage.getItem('bepo_user_id');
+        
+        if (!userId) {
+            document.getElementById('greetingName').textContent = 'User';
+            return;
+        }
+
+        try {
+            const { data, error } = await sb
+                .from('members')
+                .select('first_name, last_name, nickname, profile_url')
+                .eq('id', userId)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (data) {
+                // FIXED: Use FULLNAME (first_name + last_name) instead of nickname
+                const fullname = `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'User';
+                
+                document.getElementById('greetingName').textContent = fullname;
+                sessionStorage.setItem('bepo_user_name', fullname);
+
+                // Set profile image
+                if (data.profile_url) {
+                    const profileImg = document.getElementById('profileImage');
+                    const initialsEl = document.getElementById('profileInitials');
+                    
+                    profileImg.src = data.profile_url;
+                    profileImg.classList.remove('hidden');
+                    if (initialsEl) initialsEl.classList.add('hidden');
+                } else {
+                    // Show initials
+                    const initials = getInitials(fullname);
+                    document.getElementById('profileInitials').textContent = initials;
+                }
+
+                return;
+            }
+        } catch (e) {
+            console.warn('Profile fetch failed:', e);
+        }
+
+        // Fallback
+        document.getElementById('greetingName').textContent = 'User';
+    }
+
+    // ═══════════════════════════════════════
+    // LOAD CDSP EVENTS DATA
+    // ═══════════════════════════════════════
+    async function loadData() {
+        try {
+            const evtRes = await sb.from('cdsp_events').select('*').order('created_at', { ascending: false });
+            if (!evtRes.error) {
+                allEvents = evtRes.data || [];
+            }
+            applyFilter();
+        } catch (e) {
+            console.error('Load error:', e);
+        }
+    }
+
+    function applyFilter() {
+        const monthVal = document.getElementById('filterMonth').value;
+        let filtered = allEvents.slice();
+
+        if (monthVal !== '') {
+            const monthNum = parseInt(monthVal);
+            filtered = filtered.filter(function(evt) {
+                const dateStr = evt.event_date || evt.created_at;
+                if (!dateStr) return false;
+                return new Date(dateStr).getMonth() === monthNum;
+            });
+        }
+
+        document.getElementById('statTotalEvents').textContent = filtered.length;
+        document.getElementById('statTotalStudents').textContent = filtered.reduce(function(sum, evt) { 
+            return sum + (parseInt(evt.total_students) || 0); 
+        }, 0);
+        document.getElementById('statComplete').textContent = filtered.filter(function(evt) { 
+            return evt.status === 'Complete'; 
+        }).length;
+        document.getElementById('statIncomplete').textContent = filtered.filter(function(evt) { 
+            return evt.status === 'Incomplete'; 
+        }).length;
+    }
+
+    window.applyFilter = applyFilter;
+
+    // ═══════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════
+    function init() {
+        console.log('🚀 Initializing Dashboard...');
+        
+        if (typeof window.renderCDSPNavbar === 'function') {
+            window.renderCDSPNavbar();
+        }
+
+        updateGreeting();
+        setInterval(updateGreeting, 60000);
+        loadUserProfile();
+        loadData();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
+</body>
+</html>

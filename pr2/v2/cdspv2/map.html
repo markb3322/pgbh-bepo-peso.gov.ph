@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>CDSP Map | BEPO-PESO | Bohol PSGC Data</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Playfair Display', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .map-wrapper { height: 580px; }
+        @media (max-width: 768px) { .map-wrapper { height: 460px; } }
+        .legend-toggle { transition: all 0.2s ease; cursor: pointer; user-select: none; }
+        .legend-toggle:hover { opacity: 0.85; }
+        .legend-toggle.active { opacity: 1; }
+        .legend-toggle.inactive { opacity: 0.45; }
+        .legend-toggle.inactive span:last-child { text-decoration: line-through; }
+        
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .municipality-pin {
+            background: #7B2D8E;
+            width: 34px;
+            height: 34px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            position: relative;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            border: 2px solid white;
+            z-index: 1000;
+            cursor: pointer;
+        }
+        .municipality-pin i {
+            position: absolute;
+            transform: rotate(45deg);
+            left: 10px;
+            top: 9px;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .event-complete-pin {
+            background: #16a34a;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .event-incomplete-pin {
+            background: #f59e0b;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .map-toggle-btn {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .map-toggle-btn:hover {
+            transform: scale(1.02);
+            background: rgba(0,0,0,0.05);
+        }
+        .municipality-selector {
+            transition: all 0.2s ease;
+        }
+        .municipality-selector:focus {
+            outline: none;
+            ring: 2px solid #7B2D8E;
+        }
+
+        /* Responsive Flex Layout */
+        .map-container {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+        }
+        .map-main {
+            flex: 1;
+            min-width: 0;
+        }
+        .map-sidebar {
+            width: 260px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 900px) {
+            .map-container {
+                flex-direction: column;
+            }
+            .map-sidebar {
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                gap: 12px;
+            }
+            .map-sidebar > div {
+                flex: 1;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .map-sidebar {
+                flex-direction: column;
+            }
+            .stats-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            .stats-container > div {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans text-slate-800">
+
+    <script src="navbar.js"></script>
+
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 fade-in">
+
+        <!-- HEADER -->
+        <div class="mb-4">
+            <h2 class="text-xl md:text-2xl font-display font-bold text-slate-800 flex items-center gap-2">
+                <i class="fas fa-map-marked-alt text-teal-600"></i> CDSP Map — Bohol
+            </h2>
+            <div class="mt-2 space-y-1">
+                <p class="text-slate-600 text-sm font-medium">
+                    <i class="fas fa-chart-line text-teal-500 mr-1"></i> Manage Event Monitor Map
+                </p>
+                <p class="text-slate-500 text-xs leading-relaxed">
+                    This interactive dashboard provides real-time monitoring of <strong class="text-teal-600">CDSP events</strong> across all 47 municipalities of Bohol. Event markers are placed at their exact barangay locations.
+                </p>
+                <p class="text-slate-400 text-xs leading-relaxed">
+                    Data Source: <strong class="text-blue-600">Philippine Statistics Authority (PSA) - PSGC API</strong>. Map displays <strong class="text-purple-600">47 official municipalities</strong>.
+                </p>
+            </div>
+            <div class="flex gap-1 text-[10px] bg-white p-1.5 rounded-full shadow-sm flex-wrap mt-2">
+                <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700"><i class="fas fa-map-marker-alt"></i> 47 Municipalities</span>
+                <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700"><i class="fas fa-check-circle"></i> Complete Events</span>
+                <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><i class="fas fa-exclamation-triangle"></i> Incomplete Events</span>
+            </div>
+        </div>
+
+        <!-- MAP + LEGEND - FLEX RESPONSIVE LAYOUT -->
+        <div class="map-container mb-4">
+            <!-- Map Main Area -->
+            <div class="map-main bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden relative">
+                <!-- Map Toggle Buttons -->
+                <div class="absolute z-[1000] top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 p-1.5 flex gap-1">
+                    <button id="satelliteBtn" onclick="setMapView('satellite')" class="map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-teal-600 text-white shadow-sm">
+                        <i class="fas fa-satellite"></i> Satellite
+                    </button>
+                    <button id="streetBtn" onclick="setMapView('street')" class="map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200">
+                        <i class="fas fa-map"></i> Street Map
+                    </button>
+                </div>
+                
+                <!-- GPS Municipality Selector -->
+                <div class="absolute z-[1000] top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg shadow-md border border-gray-200 p-1.5 flex items-center gap-2">
+                    <i class="fas fa-location-dot text-teal-500 text-xs"></i>
+                    <select id="municipalityGpsSelect" onchange="gotoMunicipality()" class="municipality-selector bg-transparent text-slate-700 text-xs py-1.5 px-2 rounded-md border border-gray-300 focus:border-teal-500 cursor-pointer min-w-[160px]">
+                        <option value="" class="bg-white">GPS: Select Municipality</option>
+                    </select>
+                </div>
+                
+                <div id="boholLeafletMap" class="map-wrapper w-full"></div>
+                <div class="bg-gray-50 text-[10px] text-slate-500 px-3 py-1 border-t border-gray-200 flex justify-between">
+                    <span><i class="fas fa-database text-teal-500"></i> PSGC Official Data (Bohol Province)</span>
+                    <span><i class="fas fa-check-circle text-green-500"></i> 47 Municipalities Loaded</span>
+                </div>
+            </div>
+
+            <!-- Sidebar - District & Legend -->
+            <div class="map-sidebar">
+                <!-- District Areas Card -->
+                <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3">
+                    <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                        <i class="fas fa-layer-group text-teal-500"></i> District Areas
+                    </h4>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center gap-2 text-[11px] text-slate-600">
+                            <span class="w-4 h-4 rounded bg-blue-200 border border-blue-300"></span> District 1 (Western)
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-600">
+                            <span class="w-4 h-4 rounded bg-pink-200 border border-pink-300"></span> District 2 (Northern/Eastern)
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-600">
+                            <span class="w-4 h-4 rounded bg-green-200 border border-green-300"></span> District 3 (Southern)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Markers & Toggles Card -->
+                <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3">
+                    <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                        <i class="fas fa-map-pin text-teal-500"></i> Map Markers & Toggles
+                    </h4>
+                    <div class="space-y-2.5">
+                        <div id="toggleMunicipalities" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-600" onclick="toggleMunicipalityLayer()">
+                            <div class="w-4 h-4 rounded-full bg-purple-500 shadow-sm"></div>
+                            <span>Municipalities</span>
+                            <span class="text-[9px] ml-auto font-mono text-purple-500" id="municipalityCount">0</span>
+                        </div>
+
+                        <div id="toggleBoundaries" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-600" onclick="toggleGeographicLayer()">
+                            <span class="w-3.5 h-3.5 rounded bg-gray-300 border border-gray-400"></span>
+                            <span>District Boundaries</span>
+                        </div>
+
+                        <div class="border-t border-gray-200 my-1"></div>
+
+                        <div id="toggleComplete" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-600" onclick="toggleEventLayer('complete')">
+                            <div class="w-3.5 h-3.5 rounded-full bg-green-500 shadow-sm"></div>
+                            <span>Complete Events</span>
+                            <span class="text-[9px] ml-auto font-mono text-green-500" id="completeBadge">0</span>
+                        </div>
+
+                        <div id="toggleIncomplete" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-600" onclick="toggleEventLayer('incomplete')">
+                            <div class="w-3.5 h-3.5 rounded-full bg-amber-500 shadow-sm"></div>
+                            <span>Incomplete Events</span>
+                            <span class="text-[9px] ml-auto font-mono text-amber-500" id="incompleteBadge">0</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 pt-1 text-[9px] text-slate-400 border-t border-gray-200 text-center">
+                        <i class="fas fa-check-circle text-green-500"></i> PSGC API | 47 Municipalities
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS CARDS - Responsive Grid -->
+        <div class="stats-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+            <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3 text-center">
+                <div class="text-lg md:text-xl font-mono font-bold text-teal-600" id="statTotalEvents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Total Events</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3 text-center">
+                <div class="text-lg md:text-xl font-mono font-bold text-blue-600" id="statTotalStudents">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Students Reached</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3 text-center">
+                <div class="text-lg md:text-xl font-mono font-bold text-green-600" id="statComplete">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Completed</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-md border border-gray-200 p-3 text-center">
+                <div class="text-lg md:text-xl font-mono font-bold text-amber-600" id="statIncomplete">0</div>
+                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mt-0.5">Pending</p>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        'use strict';
+
+        const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let map, currentTileLayer;
+        let completeEventsLayer, incompleteEventsLayer, districtBoundariesLayer, municipalityPinsLayer;
+        let allEvents = [];
+        let municipalities = [];
+        let municipalityCoords = new Map();
+        let schoolsMap = new Map();
+        
+        let showComplete = true, showIncomplete = true, showMunicipalities = true, showBoundaries = true;
+
+        const BOHOL_CENTER = [9.83, 124.22];
+        const BOHOL_PROVINCE_CODE = "071200000";
+
+        const MUNICIPALITY_COORDINATES = {
+            'Alburquerque': [9.6078, 123.9586], 'Alicia': [9.8911, 124.4433], 'Anda': [9.7419, 124.5719],
+            'Antequera': [9.7856, 123.8933], 'Baclayon': [9.6229, 123.9128], 'Balilihan': [9.7567, 123.9683],
+            'Batuan': [9.7853, 124.1431], 'Bilar': [9.7097, 124.1058], 'Buenavista': [10.0828, 124.1150],
+            'Calape': [9.8883, 123.8733], 'Candijay': [9.8192, 124.4972], 'Carmen': [9.8256, 124.1942],
+            'Catigbian': [9.8578, 123.9922], 'Clarin': [9.9683, 124.0244], 'Corella': [9.6883, 123.9217],
+            'Cortes': [9.7222, 123.8767], 'Dagohoy': [9.9167, 124.3167], 'Danao': [9.9533, 124.2211],
+            'Dauis': [9.6244, 123.8592], 'Dimiao': [9.6208, 124.1628], 'Duero': [9.7117, 124.4075],
+            'Garcia Hernandez': [9.6197, 124.2967], 'Getafe': [10.1514, 124.1558], 'Guindulman': [9.7658, 124.4886],
+            'Inabanga': [10.0317, 124.0714], 'Jagna': [9.6500, 124.3725], 'Lila': [9.5944, 124.0992],
+            'Loay': [9.5994, 124.0117], 'Loboc': [9.6383, 124.0364], 'Loon': [9.8000, 123.7900],
+            'Mabini': [9.8639, 124.5214], 'Maribojoc': [9.7472, 123.8467], 'Panglao': [9.5794, 123.7564],
+            'Pilar': [9.8589, 124.3461], 'President Carlos P. Garcia': [10.1239, 124.5572], 'Sagbayan': [9.9144, 124.0942],
+            'San Isidro': [9.9419, 124.0786], 'San Miguel': [9.9967, 124.3392], 'Sevilla': [9.7033, 124.0489],
+            'Sierra Bullones': [9.8156, 124.2961], 'Sikatuna': [9.6881, 123.9744], 'City of Tagbilaran': [9.6558, 123.8542],
+            'Tagbilaran City': [9.6558, 123.8542], 'Talibon': [10.1531, 124.3247], 'Trinidad': [10.0797, 124.3422],
+            'Tubigon': [9.9550, 123.9611], 'Ubay': [10.0600, 124.4731], 'Valencia': [9.6150, 124.2092], 'Bien Unido': [10.1431, 124.3822]
+        };
+
+        function getBarangayPosition(municipality, barangay, eventId) {
+            const baseCoord = MUNICIPALITY_COORDINATES[municipality] || MUNICIPALITY_COORDINATES['City of Tagbilaran'] || [9.83, 124.22];
+            let hash = 0;
+            const str = (barangay || '') + eventId;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const latOffset = (Math.abs(hash % 300) / 10000) - 0.015;
+            const lngOffset = (Math.abs((hash >> 8) % 300) / 10000) - 0.015;
+            return [baseCoord[0] + latOffset, baseCoord[1] + lngOffset];
+        }
+
+        const tileLayers = {
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri',
+                maxZoom: 19
+            }),
+            street: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OSM & CartoDB',
+                maxZoom: 19
+            })
+        };
+
+        async function fetchMunicipalities() {
+            try {
+                const response = await fetch(`https://psgc.gitlab.io/api/provinces/${BOHOL_PROVINCE_CODE}/cities-municipalities.json`);
+                if (!response.ok) throw new Error('Failed to fetch municipalities');
+                const data = await response.json();
+                municipalities = data.filter(item => item.isMunicipality === true || item.isCity === true);
+                console.log(`Fetched ${municipalities.length} municipalities for Bohol`);
+                document.getElementById('municipalityCount').textContent = municipalities.length;
+                
+                for (const mun of municipalities) {
+                    let munName = mun.name;
+                    if (MUNICIPALITY_COORDINATES[munName]) {
+                        municipalityCoords.set(mun.code, MUNICIPALITY_COORDINATES[munName]);
+                    } else {
+                        municipalityCoords.set(mun.code, [9.83, 124.22]);
+                    }
+                }
+                return municipalities;
+            } catch (err) {
+                console.error('Error fetching municipalities:', err);
+                return [];
+            }
+        }
+
+        async function fetchSchools() {
+            try {
+                const { data, error } = await sb.from('schools').select('id, school_name');
+                if (error) throw error;
+                if (data) {
+                    schoolsMap.clear();
+                    data.forEach(school => {
+                        schoolsMap.set(school.id, school.school_name);
+                    });
+                    console.log(`Fetched ${schoolsMap.size} schools`);
+                }
+                return schoolsMap;
+            } catch (err) {
+                console.error('Error fetching schools:', err);
+                return new Map();
+            }
+        }
+
+        function getSchoolName(schoolId) {
+            if (!schoolId) return 'No school assigned';
+            const schoolName = schoolsMap.get(schoolId);
+            return schoolName || 'School not found';
+        }
+
+        function formatDisplayName(apiName) {
+            if (apiName === 'City of Tagbilaran') return 'Tagbilaran City';
+            return apiName;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('statTotalEvents').textContent = allEvents.length;
+            const totalStudents = allEvents.reduce((sum, evt) => sum + (parseInt(evt.total_students) || 0), 0);
+            document.getElementById('statTotalStudents').textContent = totalStudents;
+            const completeCount = allEvents.filter(evt => evt.status === 'Complete').length;
+            const incompleteCount = allEvents.filter(evt => evt.status === 'Incomplete').length;
+            document.getElementById('statComplete').textContent = completeCount;
+            document.getElementById('statIncomplete').textContent = incompleteCount;
+            document.getElementById('completeBadge').textContent = completeCount;
+            document.getElementById('incompleteBadge').textContent = incompleteCount;
+        }
+
+        function populateMunicipalityDropdown() {
+            const select = document.getElementById('municipalityGpsSelect');
+            const sorted = [...municipalities].sort((a, b) => a.name.localeCompare(b.name));
+            for (const mun of sorted) {
+                const option = document.createElement('option');
+                option.value = mun.code;
+                option.textContent = formatDisplayName(mun.name);
+                select.appendChild(option);
+            }
+        }
+
+        window.gotoMunicipality = function() {
+            const munCode = document.getElementById('municipalityGpsSelect').value;
+            if (munCode && municipalityCoords.has(munCode)) {
+                map.flyTo(municipalityCoords.get(munCode), 13, { duration: 1.0 });
+            }
+        };
+
+        function initMap() {
+            map = L.map('boholLeafletMap', {
+                zoomControl: true,
+                fadeAnimation: true,
+                zoomAnimation: true
+            }).setView(BOHOL_CENTER, 11);
+            
+            currentTileLayer = tileLayers.satellite;
+            currentTileLayer.addTo(map);
+
+            completeEventsLayer = L.layerGroup().addTo(map);
+            incompleteEventsLayer = L.layerGroup().addTo(map);
+            districtBoundariesLayer = L.layerGroup().addTo(map);
+            municipalityPinsLayer = L.layerGroup().addTo(map);
+
+            drawDistrictBoundaries();
+            
+            fetchSchools().then(() => {
+                fetchMunicipalities().then(() => {
+                    drawMunicipalityPins();
+                    populateMunicipalityDropdown();
+                    loadEventsFromSupabase();
+                }).catch(err => console.error('Error loading data:', err));
+            }).catch(err => console.error('Error fetching schools:', err));
+        }
+
+        window.setMapView = function(viewType) {
+            if (currentTileLayer) map.removeLayer(currentTileLayer);
+            currentTileLayer = tileLayers[viewType];
+            currentTileLayer.addTo(map);
+            const satBtn = document.getElementById('satelliteBtn');
+            const strBtn = document.getElementById('streetBtn');
+            if (viewType === 'satellite') {
+                satBtn.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-teal-600 text-white shadow-sm';
+                strBtn.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200';
+            } else {
+                strBtn.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-teal-600 text-white shadow-sm';
+                satBtn.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200';
+            }
+        };
+
+        function drawMunicipalityPins() {
+            municipalityPinsLayer.clearLayers();
+            for (const mun of municipalities) {
+                const coords = municipalityCoords.get(mun.code);
+                if (!coords) continue;
+                const pinIcon = L.divIcon({
+                    html: `<div class="municipality-pin"><i class="fas fa-map-marker-alt"></i></div>`,
+                    iconSize: [34, 34], iconAnchor: [17, 28], popupAnchor: [0, -26]
+                });
+                const displayName = formatDisplayName(mun.name);
+                const marker = L.marker(coords, { icon: pinIcon, riseOnHover: true });
+                marker.bindPopup(`
+                    <div style="min-width: 180px;">
+                        <div style="font-weight: 700; font-size: 14px; color: #7B2D8E; margin-bottom: 8px;">
+                            <i class="fas fa-city"></i> ${escapeHtml(displayName)}
+                        </div>
+                        <div style="font-size: 11px; line-height: 1.5;">
+                            <div><i class="fas fa-map-pin"></i> Municipal Center</div>
+                            <div><i class="fas fa-database"></i> PSGC Code: ${mun.code}</div>
+                            <div><i class="fas fa-tag"></i> ${mun.isCity ? 'City' : 'Municipality'}</div>
+                        </div>
+                    </div>
+                `);
+                marker.addTo(municipalityPinsLayer);
+            }
+        }
+
+        function drawDistrictBoundaries() {
+            L.polygon([[9.55,123.70],[9.65,123.68],[9.80,123.70],[9.95,123.75],[10.02,123.85],[10.00,123.98],[9.90,124.05],[9.80,124.02],[9.70,123.98],[9.60,123.95],[9.55,123.85],[9.55,123.70]], 
+                {color:'#3b82f6', fillColor:'#3b82f6', fillOpacity:0.05, weight:2, opacity:0.6, dashArray: '6, 4', interactive: false}).addTo(districtBoundariesLayer);
+            L.polygon([[9.85,124.05],[9.95,124.04],[10.08,124.08],[10.18,124.20],[10.22,124.35],[10.20,124.50],[10.10,124.58],[9.98,124.55],[9.88,124.45],[9.82,124.30],[9.82,124.10],[9.85,124.05]], 
+                {color:'#ec4899', fillColor:'#ec4899', fillOpacity:0.05, weight:2, opacity:0.6, dashArray: '6, 4', interactive: false}).addTo(districtBoundariesLayer);
+            L.polygon([[9.82,124.25],[9.88,124.38],[9.95,124.50],[9.92,124.62],[9.82,124.65],[9.72,124.60],[9.62,124.48],[9.58,124.35],[9.58,124.15],[9.65,124.00],[9.72,123.98],[9.82,124.05],[9.82,124.25]], 
+                {color:'#16a34a', fillColor:'#16a34a', fillOpacity:0.05, weight:2, opacity:0.6, dashArray: '6, 4', interactive: false}).addTo(districtBoundariesLayer);
+        }
+
+        async function loadEventsFromSupabase() {
+            try {
+                const { data, error } = await sb.from('cdsp_events').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                allEvents = data || [];
+                console.log('Events loaded:', allEvents.length);
+                drawEventMarkers();
+                updateStats();
+                setTimeout(() => {
+                    const bounds = L.latLngBounds();
+                    municipalityPinsLayer.eachLayer(l => bounds.extend(l.getLatLng()));
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                }, 800);
+            } catch (err) { 
+                console.error('Error loading events:', err); 
+                updateStats(); 
+            }
+        }
+
+        function drawEventMarkers() {
+            completeEventsLayer.clearLayers();
+            incompleteEventsLayer.clearLayers();
+            
+            if (!allEvents || allEvents.length === 0) {
+                console.log('No events to display');
+                return;
+            }
+            
+            for (const event of allEvents) {
+                let munName = event.municipality;
+                if (munName === 'Tagbilaran City') munName = 'City of Tagbilaran';
+                
+                const position = getBarangayPosition(munName, event.barangay, event.id);
+                const isComplete = event.status === 'Complete';
+                const eventIcon = L.divIcon({
+                    html: isComplete ? `<div class="event-complete-pin"><i class="fas fa-check" style="color:white; font-size:13px;"></i></div>` : `<div class="event-incomplete-pin"><i class="fas fa-exclamation" style="color:white; font-size:13px;"></i></div>`,
+                    iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14]
+                });
+                
+                const marker = L.marker(position, { icon: eventIcon, riseOnHover: true });
+                const eventLocation = event.venue || `${event.barangay || 'N/A'}, ${formatDisplayName(event.municipality || 'N/A')}`;
+                const schoolName = getSchoolName(event.school_id);
+                
+                marker.bindPopup(`
+                    <div style="min-width: 260px; max-width: 340px;">
+                        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid ${isComplete ? '#16a34a' : '#f59e0b'};">
+                            ${isComplete ? '✅' : '⚠️'} ${escapeHtml(event.event_name)}
+                        </div>
+                        <div style="font-size: 11px; line-height: 1.6;">
+                            <div><i class="fas fa-calendar-alt" style="width: 22px; display: inline-block;"></i> <strong>Date:</strong> ${event.event_date ? new Date(event.event_date).toLocaleDateString('en-US') : 'N/A'}</div>
+                            <div><i class="fas fa-school" style="width: 22px; display: inline-block;"></i> <strong>School:</strong> <span style="color: #f59e0b; font-weight: 500;">${escapeHtml(schoolName)}</span></div>
+                            <div><i class="fas fa-map-marker-alt" style="width: 22px; display: inline-block;"></i> <strong>Venue:</strong> ${escapeHtml(eventLocation)}</div>
+                            <div><i class="fas fa-location-dot" style="width: 22px; display: inline-block;"></i> <strong>Barangay:</strong> ${escapeHtml(event.barangay || 'N/A')}</div>
+                            <div><i class="fas fa-city" style="width: 22px; display: inline-block;"></i> <strong>Municipality:</strong> ${escapeHtml(formatDisplayName(event.municipality || 'N/A'))}</div>
+                            <div><i class="fas fa-users" style="width: 22px; display: inline-block;"></i> <strong>Students:</strong> ${event.total_students || 0}</div>
+                            <div><i class="fas fa-flag-checkered" style="width: 22px; display: inline-block;"></i> <strong>Status:</strong> <span style="color:${isComplete ? '#16a34a' : '#f59e0b'}; font-weight: bold;">${event.status || 'Incomplete'}</span></div>
+                            ${event.description ? `<div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e2e8f0;"><i class="fas fa-align-left" style="width: 22px; display: inline-block; vertical-align: top;"></i> <strong>Description:</strong><br><span style="margin-left: 22px; display: inline-block;">${escapeHtml(event.description.substring(0, 150))}${event.description.length > 150 ? '...' : ''}</span></div>` : ''}
+                        </div>
+                    </div>
+                `);
+                marker.addTo(isComplete ? completeEventsLayer : incompleteEventsLayer);
+            }
+        }
+
+        window.toggleEventLayer = function(type) {
+            const layer = type === 'complete' ? completeEventsLayer : incompleteEventsLayer;
+            const show = type === 'complete' ? (showComplete = !showComplete) : (showIncomplete = !showIncomplete);
+            const toggle = document.getElementById(type === 'complete' ? 'toggleComplete' : 'toggleIncomplete');
+            if (show) { 
+                map.addLayer(layer); 
+                toggle.classList.add('active'); 
+                toggle.classList.remove('inactive'); 
+            } else { 
+                map.removeLayer(layer); 
+                toggle.classList.add('inactive'); 
+                toggle.classList.remove('active'); 
+            }
+        };
+        
+        window.toggleGeographicLayer = function() {
+            showBoundaries = !showBoundaries;
+            const toggle = document.getElementById('toggleBoundaries');
+            if (showBoundaries) { 
+                map.addLayer(districtBoundariesLayer); 
+                toggle.classList.add('active'); 
+                toggle.classList.remove('inactive'); 
+            } else { 
+                map.removeLayer(districtBoundariesLayer); 
+                toggle.classList.add('inactive'); 
+                toggle.classList.remove('active'); 
+            }
+        };
+        
+        window.toggleMunicipalityLayer = function() {
+            showMunicipalities = !showMunicipalities;
+            const toggle = document.getElementById('toggleMunicipalities');
+            if (showMunicipalities) { 
+                map.addLayer(municipalityPinsLayer); 
+                toggle.classList.add('active'); 
+                toggle.classList.remove('inactive'); 
+            } else { 
+                map.removeLayer(municipalityPinsLayer); 
+                toggle.classList.add('inactive'); 
+                toggle.classList.remove('active'); 
+            }
+        };
+
+        if (typeof window.renderCDSPNavbar === 'function') {
+            window.renderCDSPNavbar();
+        }
+        
+        initMap();
+    });
+    </script>
+
+</body>
+</html>

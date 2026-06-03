@@ -1,0 +1,1131 @@
+/**
+ * navbar.js — BEPO-PESO Admin Navigation System
+ * Fixed: School name connected via school_id from events table
+ * Displays: Profile picture, full name (first_name + last_name), and ID number
+ */
+
+(function () {
+  'use strict';
+
+  const CSS_ID = 'cdsp-navbar-styles';
+  const SB_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
+
+  const NAV_ITEMS = [
+    { id: 'nav-home',      href: 'index.html',        label: 'Home',           icon: '🏠' },
+    { id: 'nav-map',       href: 'map.html',          label: 'Map',            icon: '🗺️' },
+    { id: 'nav-calendar',  href: 'calendar.html',     label: 'Calendar',       icon: '📅' },
+    { id: 'nav-records',   href: 'list_record.html',  label: 'Records',        icon: '📋' },
+    { id: 'nav-schools',   href: 'add_school.html',   label: 'Schools',        icon: '🏫' },
+    { id: 'nav-reports',   href: 'report.html',       label: 'Reports',        icon: '📊' },
+  ];
+
+  const PAGE_MAP = {
+    'index.html':        'nav-home',
+    '':                  'nav-home',
+    'map.html':          'nav-map',
+    'cdsp_map.html':     'nav-map',
+    'calendar.html':     'nav-calendar',
+    'list_record.html':  'nav-records',
+    'add_school.html':   'nav-schools',
+    'school.html':       'nav-schools',
+    'report.html':       'nav-reports',
+  };
+
+  const MUNICIPALITY_COORDS = {
+    'Alburquerque': [9.6078, 123.9586], 'Antequera': [9.7856, 123.8933], 'Baclayon': [9.6229, 123.9128],
+    'Balilihan': [9.7567, 123.9683], 'Calape': [9.8883, 123.8733], 'Catigbian': [9.8578, 123.9922],
+    'Clarin': [9.9683, 124.0244], 'Corella': [9.6883, 123.9217], 'Cortes': [9.7222, 123.8767],
+    'Dauis': [9.6244, 123.8592], 'Loon': [9.8000, 123.7900], 'Maribojoc': [9.7472, 123.8467],
+    'Panglao': [9.5794, 123.7564], 'Sikatuna': [9.6881, 123.9744], 'Tubigon': [9.9550, 123.9611],
+    'Tagbilaran City': [9.6558, 123.8542], 'City of Tagbilaran': [9.6558, 123.8542],
+    'Bien Unido': [10.1431, 124.3822], 'Buenavista': [10.0828, 124.1150], 'Carmen': [9.8256, 124.1942],
+    'Dagohoy': [9.9167, 124.3167], 'Danao': [9.9533, 124.2211], 'Getafe': [10.1514, 124.1558],
+    'Inabanga': [10.0317, 124.0714], 'President Carlos P. Garcia': [10.1239, 124.5572],
+    'Sagbayan': [9.9144, 124.0942], 'San Miguel': [9.9967, 124.3392], 'Talibon': [10.1531, 124.3247],
+    'Trinidad': [10.0797, 124.3422], 'Ubay': [10.0600, 124.4731], 'Alicia': [9.8911, 124.4433],
+    'Anda': [9.7419, 124.5719], 'Batuan': [9.7853, 124.1431], 'Bilar': [9.7097, 124.1058],
+    'Candijay': [9.8192, 124.4972], 'Dimiao': [9.6208, 124.1628], 'Duero': [9.7117, 124.4075],
+    'Garcia Hernandez': [9.6197, 124.2967], 'Guindulman': [9.7658, 124.4886], 'Jagna': [9.6500, 124.3725],
+    'Lila': [9.5944, 124.0992], 'Loay': [9.5994, 124.0117], 'Loboc': [9.6383, 124.0364],
+    'Mabini': [9.8639, 124.5214], 'Pilar': [9.8589, 124.3461], 'Sevilla': [9.7033, 124.0489],
+    'Sierra Bullones': [9.8156, 124.2961], 'Valencia': [9.6150, 124.2092], 'San Isidro': [9.9419, 124.0786]
+  };
+
+  // Store schools data globally
+  let schoolsData = [];
+
+  function ensureStyles() {
+    if (document.getElementById(CSS_ID)) return;
+    const css = `
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+
+:root {
+  --cdsp-topbar-h:             54px;
+  --cdsp-sidebar-w:            200px;
+  --cdsp-bg:                   #ffffff;
+  --cdsp-bg2:                  #f8fafc;
+  --cdsp-line:                 #e8edf3;
+  --cdsp-text:                 #0f172a;
+  --cdsp-muted:                #94a3b8;
+  --cdsp-accent:               #14b8a6;
+  --cdsp-accent-dim:           rgba(20,184,166,0.15);
+  --cdsp-font:                 'DM Sans', system-ui, sans-serif;
+  --cdsp-mono:                 'DM Mono', monospace;
+  --cdsp-mobile-bar-h:         58px;
+  --orange-pin:                #f59e0b;
+  --orange-dark:               #ea580c;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+.cdsp-topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--cdsp-topbar-h);
+  background: var(--cdsp-bg);
+  border-bottom: 1px solid var(--cdsp-line);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px 0 14px;
+  z-index: 1000; font-family: var(--cdsp-font);
+}
+
+.cdsp-topbar-left { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.cdsp-topbar-center { flex: 1; display: flex; align-items: center; justify-content: center; }
+.cdsp-topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.cdsp-logo-area {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.cdsp-logo-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--cdsp-accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+  font-family: var(--cdsp-mono); flex-shrink: 0; overflow: hidden;
+}
+.cdsp-logo-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cdsp-logo-initials { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+
+.cdsp-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+.cdsp-brand-title { font-size: 12.5px; font-weight: 700; color: var(--cdsp-text); letter-spacing: -0.2px; }
+.cdsp-brand-sub { font-size: 9px; color: var(--cdsp-muted); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+
+.cdsp-datetime {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--cdsp-mono);
+  font-size: 11.5px;
+  color: var(--cdsp-text2);
+  white-space: nowrap;
+  user-select: none;
+}
+.cdsp-datetime .dt-time { font-weight: 700; color: var(--cdsp-text); font-size: 12.5px; }
+.cdsp-datetime .dt-divider { width: 1px; height: 16px; background: var(--cdsp-line); border-radius: 1px; }
+.cdsp-datetime .dt-date { color: var(--cdsp-muted); font-size: 11px; }
+
+.cdsp-reminder {
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--cdsp-bg2);
+  transition: all 0.2s;
+}
+.cdsp-reminder:hover { background: var(--cdsp-accent-dim); }
+.cdsp-reminder i { font-size: 18px; color: var(--cdsp-text2); }
+.cdsp-reminder-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #ef4444;
+  color: white;
+  font-size: 9px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-family: monospace;
+}
+
+.cdsp-profile-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--cdsp-bg2); border: 1px solid var(--cdsp-line);
+  border-radius: 40px; padding: 4px 14px 4px 4px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.cdsp-profile-chip:hover { background: var(--cdsp-accent-dim); border-color: var(--cdsp-accent); }
+
+.cdsp-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0; overflow: hidden;
+  border: 2px solid var(--cdsp-accent-dim);
+}
+.cdsp-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+.cdsp-profile-info { overflow: hidden; }
+.cdsp-profile-name { font-size: 12.5px; font-weight: 600; color: var(--cdsp-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; line-height: 1.2; }
+.cdsp-profile-role { font-size: 10px; color: var(--cdsp-muted); font-weight: 500; white-space: nowrap; }
+
+/* Sidebar - Facebook Style Menu */
+.cdsp-sidebar {
+  position: fixed; top: var(--cdsp-topbar-h); left: 0; bottom: 0;
+  width: var(--cdsp-sidebar-w);
+  background: var(--cdsp-bg);
+  border-right: 1px solid var(--cdsp-line);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  font-family: var(--cdsp-font);
+  overflow-y: auto;
+}
+
+.cdsp-nav { flex: 1; padding: 8px 12px; }
+.cdsp-nav ul { list-style: none; margin: 0; padding: 0; }
+.cdsp-nav li { margin: 4px 0; }
+
+.cdsp-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--cdsp-text2);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cdsp-nav a:hover { 
+  background: var(--cdsp-bg2); 
+  color: var(--cdsp-text);
+  transform: translateX(2px);
+}
+
+.cdsp-nav a.active { 
+  background: var(--cdsp-accent-dim); 
+  color: var(--cdsp-accent);
+  font-weight: 600;
+}
+
+.nav-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.nav-label { 
+  font-size: 13px; 
+  font-weight: 500;
+}
+
+.cdsp-nav-divider { 
+  height: 1px; 
+  background: var(--cdsp-line); 
+  margin: 8px 12px; 
+}
+
+.cdsp-nav a.danger { 
+  color: rgba(239,68,68,0.65); 
+}
+.cdsp-nav a.danger:hover { 
+  background: rgba(239,68,68,0.08); 
+  color: #ef4444; 
+}
+
+.cdsp-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--cdsp-line);
+  margin-top: auto;
+}
+.cdsp-footer-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.cdsp-footer-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cdsp-accent); }
+.cdsp-footer-text { font-size: 10px; color: var(--cdsp-muted); font-family: var(--cdsp-mono); }
+
+.cdsp-content-shift {
+  margin-top: var(--cdsp-topbar-h);
+  margin-left: var(--cdsp-sidebar-w);
+  min-height: calc(100vh - var(--cdsp-topbar-h));
+  transition: margin-left 0.2s ease;
+}
+
+/* Orange Pin Marker */
+.orange-pin-marker {
+  background: var(--orange-pin);
+  width: 40px;
+  height: 40px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  position: relative;
+  box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+  border: 3px solid white;
+  cursor: pointer;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
+  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+}
+.orange-pin-marker i {
+  position: absolute;
+  transform: rotate(45deg);
+  left: 13px;
+  top: 11px;
+  font-size: 16px;
+  color: white;
+}
+
+/* Event Modal */
+.cdsp-event-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.cdsp-event-modal.active { display: flex; }
+.cdsp-modal-container {
+  background: white;
+  width: 90%;
+  max-width: 750px;
+  max-height: 85vh;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+  animation: modalSlideIn 0.3s ease;
+}
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.cdsp-modal-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--orange-pin), var(--orange-dark));
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cdsp-modal-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: white;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cdsp-modal-body {
+  padding: 20px;
+  max-height: calc(85vh - 60px);
+  overflow-y: auto;
+}
+.cdsp-event-map {
+  height: 280px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid var(--cdsp-line);
+}
+.cdsp-event-info {
+  background: var(--cdsp-bg2);
+  border-radius: 16px;
+  padding: 16px;
+}
+.cdsp-info-row {
+  display: flex;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cdsp-line);
+}
+.cdsp-info-row:last-child { border-bottom: none; }
+.cdsp-info-label {
+  width: 110px;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--cdsp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cdsp-info-value {
+  flex: 1;
+  font-size: 13px;
+  color: var(--cdsp-text);
+  font-weight: 500;
+}
+.cdsp-info-description {
+  font-size: 12px;
+  color: var(--cdsp-text2);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.cdsp-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.cdsp-status-incomplete { background: #fef3c7; color: var(--orange-dark); }
+
+/* Reminder Modal */
+.cdsp-reminder-modal {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  width: 380px;
+  max-height: 500px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  z-index: 1001;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--cdsp-line);
+}
+.cdsp-reminder-modal.active { display: flex; }
+.cdsp-reminder-header {
+  padding: 12px 16px;
+  background: var(--cdsp-bg2);
+  border-bottom: 1px solid var(--cdsp-line);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cdsp-reminder-header-actions {
+  display: flex;
+  gap: 8px;
+}
+.cdsp-reminder-header-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--cdsp-muted);
+  font-size: 12px;
+}
+.cdsp-reminder-header-actions button:hover { color: var(--orange-pin); }
+.cdsp-reminder-list {
+  max-height: 450px;
+  overflow-y: auto;
+  padding: 8px;
+}
+.cdsp-reminder-item {
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 4px solid var(--orange-pin);
+  background: var(--cdsp-bg2);
+}
+.cdsp-reminder-item:hover { background: #fff7ed; transform: translateX(-2px); }
+.cdsp-reminder-item .event-name { font-weight: 700; font-size: 13px; color: var(--cdsp-text); margin-bottom: 6px; }
+.cdsp-reminder-item .event-details { font-size: 10px; color: var(--cdsp-muted); display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.cdsp-reminder-item .event-details span { display: inline-flex; align-items: center; gap: 3px; }
+.cdsp-reminder-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: var(--cdsp-muted);
+  font-size: 13px;
+}
+.cdsp-reminder-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--cdsp-line);
+  font-size: 10px;
+  color: var(--cdsp-muted);
+  text-align: center;
+  background: var(--cdsp-bg2);
+}
+
+.cdsp-mobile-bar {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--cdsp-mobile-bar-h);
+  background: var(--cdsp-bg); border-top: 1px solid var(--cdsp-line);
+  z-index: 1000; padding: 0 4px;
+}
+.cdsp-mobile-nav {
+  display: flex; align-items: center; justify-content: space-around;
+  height: 100%; list-style: none; margin: 0; padding: 0;
+}
+.cdsp-mobile-nav li { flex: 1; }
+.cdsp-mobile-nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  text-decoration: none;
+  color: var(--cdsp-muted);
+  font-size: 10px;
+  font-weight: 500;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+.cdsp-mobile-nav a .mob-icon { font-size: 20px; }
+.cdsp-mobile-nav a:hover { color: var(--cdsp-text2); background: var(--cdsp-bg2); }
+.cdsp-mobile-nav a.active { color: var(--cdsp-accent); background: var(--cdsp-accent-dim); }
+
+@media (max-width: 900px) {
+  .cdsp-sidebar { display: none !important; }
+  .cdsp-mobile-bar { display: flex; }
+  .cdsp-content-shift { margin-left: 0 !important; margin-bottom: var(--cdsp-mobile-bar-h); }
+  .cdsp-brand-sub { display: none; }
+  .cdsp-datetime { display: none; }
+  .cdsp-profile-name, .cdsp-profile-role { display: none; }
+  .cdsp-profile-chip { padding: 4px; }
+  .cdsp-topbar { padding: 0 12px; }
+  .cdsp-reminder-modal { right: 10px; width: 320px; left: 10px; }
+  .cdsp-modal-container { width: 95%; margin: 16px; }
+  .cdsp-event-map { height: 200px; }
+}
+@media (min-width: 901px) {
+  .cdsp-mobile-bar { display: none !important; }
+}
+@media (max-width: 500px) {
+  .cdsp-topbar { padding: 0 8px; }
+  .cdsp-brand-title { font-size: 11.5px; }
+}
+`;
+    const style = document.createElement('style');
+    style.id = CSS_ID;
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function getInitials(name) {
+    if (!name) return 'US';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+
+  function buildNavHTML(userName, userRole, avatarSrc) {
+    const initials = getInitials(userName);
+
+    const chipAvatar = avatarSrc
+      ? `<div class="cdsp-avatar"><img src="${avatarSrc}" alt="Profile" onerror="this.parentElement.textContent='${initials}'" /></div>`
+      : `<div class="cdsp-avatar">${initials}</div>`;
+
+    const desktopNavHTML = NAV_ITEMS.map(item => `
+      <li><a href="${item.href}" id="${item.id}">
+        <span class="nav-icon">${item.icon}</span>
+        <span class="nav-label">${item.label}</span>
+      </a></li>`).join('');
+
+    const mobileNavHTML = NAV_ITEMS.map(item => `
+      <li><a href="${item.href}" id="mob-${item.id}">
+        <span class="mob-icon">${item.icon}</span>
+        <span>${item.label}</span>
+      </a></li>`).join('');
+
+    return `
+<header class="cdsp-topbar" role="banner">
+  <div class="cdsp-topbar-left">
+    <div class="cdsp-logo-area">
+      <div class="cdsp-logo-mark">
+        <img src="image/bepo.png" alt="Logo"
+          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+        <div class="cdsp-logo-initials" style="display:none">BP</div>
+      </div>
+      <div class="cdsp-brand-text">
+        <div class="cdsp-brand-title">Career Development Support Program</div>
+        <div class="cdsp-brand-sub">CDSP · BEPO-PESO</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cdsp-topbar-center">
+    <div class="cdsp-datetime" id="cdsp-datetime">
+      <span class="dt-time" id="dt-time">--:--:--</span>
+      <span class="dt-divider"></span>
+      <span class="dt-date" id="dt-date">---, -- ----</span>
+    </div>
+  </div>
+
+  <div class="cdsp-topbar-right">
+    <div class="cdsp-reminder" id="cdsp-reminder">
+      <i class="fas fa-bell"></i>
+      <span class="cdsp-reminder-badge" id="reminder-badge" style="display:none;">0</span>
+    </div>
+    <div class="cdsp-profile-chip" id="cdsp-profile-chip" title="User Profile">
+      ${chipAvatar}
+      <div class="cdsp-profile-info">
+        <div class="cdsp-profile-name">${userName}</div>
+        <div class="cdsp-profile-role">${userRole}</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="cdsp-overlay" id="cdsp-overlay" aria-hidden="true"></div>
+
+<div class="cdsp-reminder-modal" id="cdsp-reminder-modal">
+  <div class="cdsp-reminder-header">
+    <span><i class="fas fa-exclamation-triangle" style="color:#f59e0b;"></i> Incomplete Events by Municipality</span>
+    <div class="cdsp-reminder-header-actions">
+      <button id="refresh-reminder" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+      <button id="close-reminder" title="Close"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+  <div class="cdsp-reminder-list" id="reminder-list">
+    <div class="cdsp-reminder-empty"><i class="fas fa-spinner fa-pulse"></i> Loading events...</div>
+  </div>
+  <div class="cdsp-reminder-footer">
+    <i class="fas fa-map-marker-alt"></i> Click any event to view details on map
+  </div>
+</div>
+
+<div class="cdsp-event-modal" id="cdsp-event-modal">
+  <div class="cdsp-modal-container">
+    <div class="cdsp-modal-header">
+      <h3><i class="fas fa-map-marker-alt"></i> Incomplete Event Details</h3>
+      <button class="cdsp-modal-close" onclick="document.getElementById('cdsp-event-modal').classList.remove('active')">✕</button>
+    </div>
+    <div class="cdsp-modal-body">
+      <div class="cdsp-event-map" id="event-map"></div>
+      <div class="cdsp-event-info" id="event-info">
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Event Name</div>
+          <div class="cdsp-info-value" id="modal-event-name">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">School</div>
+          <div class="cdsp-info-value" id="modal-event-school">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Municipality</div>
+          <div class="cdsp-info-value" id="modal-event-muni">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Barangay</div>
+          <div class="cdsp-info-value" id="modal-event-barangay">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">District</div>
+          <div class="cdsp-info-value" id="modal-event-district">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Date</div>
+          <div class="cdsp-info-value" id="modal-event-date">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Venue</div>
+          <div class="cdsp-info-value" id="modal-event-venue">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Students</div>
+          <div class="cdsp-info-value" id="modal-event-students">-</div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Status</div>
+          <div class="cdsp-info-value"><span class="cdsp-status-badge cdsp-status-incomplete" id="modal-event-status">⚠ Incomplete</span></div>
+        </div>
+        <div class="cdsp-info-row">
+          <div class="cdsp-info-label">Description</div>
+          <div class="cdsp-info-value cdsp-info-description" id="modal-event-description">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside class="cdsp-sidebar" id="cdsp-sidebar" aria-label="Main navigation">
+  <nav class="cdsp-nav" aria-label="Sidebar navigation">
+    <ul>
+      ${desktopNavHTML}
+      <li><div class="cdsp-nav-divider"></div></li>
+      <li><a href="logout.html" id="nav-logout" class="danger">
+        <span class="nav-icon">🚪</span>
+        <span class="nav-label">Logout</span>
+      </a></li>
+    </ul>
+  </nav>
+  <div class="cdsp-sidebar-footer">
+    <div class="cdsp-footer-tag">
+      <div class="cdsp-footer-dot"></div>
+      <div class="cdsp-footer-text">&copy; BEPO-PESO 2026</div>
+    </div>
+  </div>
+</aside>
+
+<nav class="cdsp-mobile-bar" id="cdsp-mobile-bar" aria-label="Mobile navigation">
+  <ul class="cdsp-mobile-nav">
+    ${mobileNavHTML}
+    <li><a href="logout.html" id="mob-nav-logout" class="danger">
+      <span class="mob-icon">🚪</span>
+      <span>Logout</span>
+    </a></li>
+  </ul>
+</nav>`;
+  }
+
+  function markActive() {
+    const page = window.location.pathname.split('/').pop().toLowerCase() || 'index.html';
+    const id = PAGE_MAP[page];
+    if (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+      const mobEl = document.getElementById('mob-' + id);
+      if (mobEl) mobEl.classList.add('active');
+    }
+  }
+
+  function shiftContent() {
+    const selectors = [
+      '.app-shell', '#app-shell', '.main-content', '#main-content',
+      '.main', '#main', 'main', '.content', '#content',
+      '.page-content', '#page-content', '.register-wrapper', '.edit-wrapper',
+      '.view-wrapper', '.dashboard', '.page',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) { el.classList.add('cdsp-content-shift'); return; }
+    }
+  }
+
+  function updateDateTime() {
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const phNow = new Date(utc + (3600000 * 8));
+
+    let hours = phNow.getHours();
+    const minutes = String(phNow.getMinutes()).padStart(2, '0');
+    const seconds = String(phNow.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const timeStr = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    const dateStr = `${days[phNow.getDay()]}, ${months[phNow.getMonth()]} ${phNow.getDate()}, ${phNow.getFullYear()}`;
+
+    const timeEl = document.getElementById('dt-time');
+    const dateEl = document.getElementById('dt-date');
+    if (timeEl) timeEl.textContent = timeStr;
+    if (dateEl) dateEl.textContent = dateStr;
+  }
+
+  async function fetchProfile() {
+    const userId = sessionStorage.getItem('bepo_user_id');
+    if (!userId) return null;
+    try {
+      const res = await fetch(
+        `${SB_URL}/rest/v1/members?id=eq.${userId}&select=first_name,last_name,profile_url,role,id_number`,
+        {
+          headers: {
+            'apikey': SB_KEY,
+            'Authorization': `Bearer ${SB_KEY}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data && data.length > 0 ? data[0] : null;
+    } catch (e) {
+      console.warn('CDSP Navbar: profile fetch failed', e);
+      return null;
+    }
+  }
+
+  function updateProfileUI(profile) {
+    if (!profile) return;
+    // Use FULLNAME (first_name + last_name) instead of nickname
+    const fullname = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+    const name = fullname || sessionStorage.getItem('bepo_user_name') || 'Member';
+    // Use id_number as role
+    const role = profile.id_number || profile.role || sessionStorage.getItem('bepo_id_number') || 'CDSP';
+    const avatar = profile.profile_url || null;
+    const initials = getInitials(name);
+
+    const chip = document.getElementById('cdsp-profile-chip');
+    if (chip) {
+      const nameEl = chip.querySelector('.cdsp-profile-name');
+      const roleEl = chip.querySelector('.cdsp-profile-role');
+      const avatarEl = chip.querySelector('.cdsp-avatar');
+      if (nameEl) nameEl.textContent = name;
+      if (roleEl) roleEl.textContent = role;
+      if (avatarEl) {
+        avatarEl.innerHTML = avatar
+          ? `<img src="${avatar}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initials}'" />`
+          : initials;
+      }
+    }
+
+    sessionStorage.setItem('bepo_user_name', name);
+  }
+
+  // ==================== FETCH SCHOOLS AND CONNECT TO EVENTS ====================
+  async function fetchSchools() {
+    try {
+      const sb = window.supabase.createClient(
+        'https://lfmcgktlmdiwddngytkq.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s'
+      );
+      const { data, error } = await sb.from('schools').select('id, school_name');
+      if (error) throw error;
+      if (data) {
+        schoolsData = data;
+        console.log('Schools loaded:', schoolsData.length);
+      }
+      return schoolsData;
+    } catch (err) {
+      console.error('Error fetching schools:', err);
+      return [];
+    }
+  }
+
+  function getSchoolName(schoolId) {
+    if (!schoolId) return 'No school assigned';
+    const school = schoolsData.find(s => s.id == schoolId);
+    return school ? school.school_name : 'School not found';
+  }
+
+  async function fetchIncompleteEvents() {
+    try {
+      const sb = window.supabase.createClient(
+        'https://lfmcgktlmdiwddngytkq.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s'
+      );
+      const { data, error } = await sb
+        .from('cdsp_events')
+        .select('id, event_name, municipality, barangay, status, district, school_id, description, event_date, venue, total_students')
+        .eq('status', 'Incomplete')
+        .order('event_date', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Error fetching incomplete events:', err);
+      return [];
+    }
+  }
+
+  function updateReminderBadge(count) {
+    const badge = document.getElementById('reminder-badge');
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  }
+
+  function createOrangePinIcon() {
+    return L.divIcon({
+      html: `<div class="orange-pin-marker"><i class="fas fa-exclamation-triangle"></i></div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 38],
+      popupAnchor: [0, -38],
+      className: 'custom-orange-pin'
+    });
+  }
+
+  let currentMap = null;
+  
+  function initEventMapWithOrangePin(lat, lng, municipality, eventName) {
+    const mapContainer = document.getElementById('event-map');
+    if (!mapContainer) return;
+    
+    if (currentMap) {
+      currentMap.remove();
+      currentMap = null;
+    }
+    
+    currentMap = L.map('event-map').setView([lat, lng], 13);
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; CartoDB',
+      subdomains: 'abcd',
+      maxZoom: 19,
+      minZoom: 3
+    }).addTo(currentMap);
+    
+    const orangeIcon = createOrangePinIcon();
+    const marker = L.marker([lat, lng], { icon: orangeIcon }).addTo(currentMap);
+    marker.bindPopup(`
+      <b style="color:#f59e0b;">⚠ Incomplete Event</b><br>
+      <b>Event:</b> ${escapeHtml(eventName)}<br>
+      <b>Location:</b> ${escapeHtml(municipality)}
+    `).openPopup();
+  }
+
+  function formatDate(dateString) {
+    if (!dateString) return 'No date set';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function showEventDetails(event) {
+    const displayMuni = event.municipality === 'City of Tagbilaran' ? 'Tagbilaran City' : event.municipality;
+    const schoolName = getSchoolName(event.school_id);
+    const description = event.description || 'No description provided';
+    const eventDate = formatDate(event.event_date);
+    const venue = event.venue || 'No venue specified';
+    const totalStudents = event.total_students || 0;
+    const barangay = event.barangay || 'N/A';
+    const district = event.district || 'N/A';
+    
+    let coords = MUNICIPALITY_COORDS[displayMuni] || MUNICIPALITY_COORDS[event.municipality] || [9.83, 124.22];
+    
+    document.getElementById('modal-event-name').textContent = event.event_name;
+    document.getElementById('modal-event-school').textContent = schoolName;
+    document.getElementById('modal-event-muni').textContent = displayMuni;
+    document.getElementById('modal-event-barangay').textContent = barangay;
+    document.getElementById('modal-event-district').textContent = district;
+    document.getElementById('modal-event-date').textContent = eventDate;
+    document.getElementById('modal-event-venue').textContent = venue;
+    document.getElementById('modal-event-students').textContent = totalStudents;
+    document.getElementById('modal-event-status').innerHTML = '⚠ Incomplete';
+    document.getElementById('modal-event-status').className = 'cdsp-status-badge cdsp-status-incomplete';
+    document.getElementById('modal-event-description').textContent = description;
+    
+    const modal = document.getElementById('cdsp-event-modal');
+    modal.classList.add('active');
+    
+    setTimeout(() => {
+      initEventMapWithOrangePin(coords[0], coords[1], displayMuni, event.event_name);
+    }, 100);
+  }
+
+  function showReminderModal(events) {
+    const modal = document.getElementById('cdsp-reminder-modal');
+    const listContainer = document.getElementById('reminder-list');
+    
+    if (!modal || !listContainer) return;
+    
+    if (!events || events.length === 0) {
+      listContainer.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-check-circle"></i> No incomplete events found</div>';
+    } else {
+      const grouped = {};
+      events.forEach(event => {
+        let muni = event.municipality;
+        if (muni === 'City of Tagbilaran') muni = 'Tagbilaran City';
+        if (!grouped[muni]) grouped[muni] = [];
+        grouped[muni].push(event);
+      });
+      
+      let html = '';
+      for (const [muni, muniEvents] of Object.entries(grouped)) {
+        html += `<div style="margin-bottom: 16px;">
+          <div style="font-weight: 700; font-size: 12px; color: #f59e0b; padding: 8px 10px; background: #fef3c7; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-city"></i> ${escapeHtml(muni)}
+            <span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 20px; font-size: 10px;">${muniEvents.length}</span>
+          </div>`;
+        
+        muniEvents.forEach(event => {
+          const eventDate = formatDate(event.event_date);
+          const schoolName = getSchoolName(event.school_id);
+          html += `
+            <div class="cdsp-reminder-item" 
+                 data-event-id="${event.id}" 
+                 data-event-name="${escapeHtml(event.event_name)}" 
+                 data-event-muni="${escapeHtml(muni)}" 
+                 data-event-barangay="${escapeHtml(event.barangay || 'N/A')}" 
+                 data-event-district="${event.district || 'N/A'}" 
+                 data-event-school-id="${event.school_id || ''}"
+                 data-event-date="${event.event_date || ''}"
+                 data-event-venue="${escapeHtml(event.venue || '')}"
+                 data-event-students="${event.total_students || 0}"
+                 data-event-description="${escapeHtml(event.description || 'No description')}">
+              <div class="event-name">
+                <i class="fas fa-calendar-alt" style="font-size: 10px; margin-right: 5px;"></i> 
+                ${escapeHtml(event.event_name)}
+              </div>
+              <div class="event-details">
+                <span><i class="fas fa-school"></i> ${escapeHtml(schoolName)}</span>
+                <span><i class="fas fa-location-dot"></i> ${escapeHtml(event.barangay || 'N/A')}</span>
+                <span><i class="fas fa-users"></i> ${event.total_students || 0}</span>
+              </div>
+              <div class="event-details" style="margin-top: 4px;">
+                <span><i class="fas fa-calendar"></i> ${eventDate}</span>
+              </div>
+            </div>
+          `;
+        });
+        html += `</div>`;
+      }
+      listContainer.innerHTML = html;
+      
+      document.querySelectorAll('.cdsp-reminder-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const eventData = {
+            event_name: item.dataset.eventName,
+            municipality: item.dataset.eventMuni,
+            barangay: item.dataset.eventBarangay,
+            district: item.dataset.eventDistrict,
+            school_id: item.dataset.eventSchoolId || null,
+            description: item.dataset.eventDescription,
+            event_date: item.dataset.eventDate,
+            venue: item.dataset.eventVenue,
+            total_students: item.dataset.eventStudents,
+            status: 'Incomplete'
+          };
+          showEventDetails(eventData);
+          modal.classList.remove('active');
+        });
+      });
+    }
+    
+    modal.classList.toggle('active');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  async function refreshReminder() {
+    const listContainer = document.getElementById('reminder-list');
+    if (listContainer) {
+      listContainer.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-spinner fa-pulse"></i> Refreshing events...</div>';
+    }
+    const newEvents = await fetchIncompleteEvents();
+    window._incompleteEvents = newEvents;
+    updateReminderBadge(newEvents.length);
+    if (document.getElementById('cdsp-reminder-modal').classList.contains('active')) {
+      showReminderModal(newEvents);
+    }
+  }
+
+  async function setupReminder() {
+    const reminderBtn = document.getElementById('cdsp-reminder');
+    const refreshBtn = document.getElementById('refresh-reminder');
+    const closeBtn = document.getElementById('close-reminder');
+    
+    if (!reminderBtn) return;
+    
+    await fetchSchools();
+    
+    const incompleteEvents = await fetchIncompleteEvents();
+    updateReminderBadge(incompleteEvents.length);
+    window._incompleteEvents = incompleteEvents;
+    
+    reminderBtn.addEventListener('click', () => {
+      showReminderModal(window._incompleteEvents);
+    });
+    
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        refreshReminder();
+      });
+    }
+    
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('cdsp-reminder-modal').classList.remove('active');
+      });
+    }
+    
+    document.addEventListener('click', (e) => {
+      const reminderModal = document.getElementById('cdsp-reminder-modal');
+      const eventModal = document.getElementById('cdsp-event-modal');
+      const reminder = document.getElementById('cdsp-reminder');
+      
+      if (reminderModal && reminderModal.classList.contains('active')) {
+        if (!reminderModal.contains(e.target) && !reminder?.contains(e.target)) {
+          reminderModal.classList.remove('active');
+        }
+      }
+      
+      if (eventModal && eventModal.classList.contains('active')) {
+        if (e.target === eventModal || e.target.classList?.contains('cdsp-modal-close')) {
+          eventModal.classList.remove('active');
+          if (currentMap) {
+            currentMap.remove();
+            currentMap = null;
+          }
+        }
+      }
+    });
+    
+    setInterval(async () => {
+      const newEvents = await fetchIncompleteEvents();
+      window._incompleteEvents = newEvents;
+      updateReminderBadge(newEvents.length);
+    }, 30000);
+  }
+
+  window.renderCDSPNavbar = async function (options) {
+    ensureStyles();
+    if (document.getElementById('cdsp-sidebar')) return;
+
+    if (typeof L === 'undefined') {
+      const leafletScript = document.createElement('script');
+      leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      leafletScript.onload = () => console.log('Leaflet loaded');
+      document.head.appendChild(leafletScript);
+    }
+
+    const sessionName = sessionStorage.getItem('bepo_user_name') || 'Member';
+    const sessionRole = sessionStorage.getItem('bepo_id_number') || 'CDSP';
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = buildNavHTML(sessionName, sessionRole, null);
+
+    Array.from(tmp.children).forEach(el => {
+      document.body.appendChild(el);
+    });
+
+    shiftContent();
+    markActive();
+
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+
+    const profile = await fetchProfile();
+    if (profile) updateProfileUI(profile);
+    
+    await setupReminder();
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!document.getElementById('cdsp-sidebar')) {
+      window.renderCDSPNavbar();
+    }
+  });
+
+})();

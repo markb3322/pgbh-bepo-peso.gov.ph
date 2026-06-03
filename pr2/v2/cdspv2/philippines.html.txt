@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>CDSP Map | Nationwide PSGC Data (Proper Barangay Grouping)</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .map-wrapper { height: 580px; }
+        @media (max-width: 768px) { .map-wrapper { height: 460px; } }
+        .legend-toggle { transition: all 0.2s ease; cursor: pointer; user-select: none; }
+        .legend-toggle:hover { opacity: 0.85; }
+        .legend-toggle.active { opacity: 1; }
+        .legend-toggle.inactive { opacity: 0.45; }
+        
+        .province-pin {
+            background: #3b82f6;
+            width: 28px;
+            height: 28px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            position: relative;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+            border: 2px solid white;
+            cursor: pointer;
+        }
+        .province-pin i { position: absolute; transform: rotate(45deg); left: 7px; top: 6px; font-size: 12px; color: white; }
+        
+        .municipality-pin {
+            background: #7B2D8E;
+            width: 26px;
+            height: 26px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            border: 2px solid white;
+            cursor: pointer;
+        }
+        .municipality-pin i { position: absolute; transform: rotate(45deg); left: 7px; top: 6px; font-size: 11px; color: white; }
+        
+        .barangay-pin { background: #f97316; width: 8px; height: 8px; border-radius: 50%; border: 1px solid white; box-shadow: 0 1px 2px rgba(0,0,0,0.3); opacity: 0.7; }
+        
+        .event-complete-pin { background: #16a34a; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        .event-incomplete-pin { background: #f59e0b; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        
+        .map-toggle-btn { transition: all 0.2s ease; cursor: pointer; }
+        .region-selector, .province-selector, .muni-selector { background: #1e293b; color: #e2e8f0; font-size: 11px; padding: 6px 8px; border-radius: 6px; border: 1px solid #475569; cursor: pointer; }
+        .region-selector:focus, .province-selector:focus, .muni-selector:focus { outline: none; border-color: #7B2D8E; }
+    </style>
+</head>
+
+<body class="bg-slate-900 font-sans text-slate-800">
+
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 fade-in">
+
+        <div class="mb-4">
+            <h2 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                <i class="fas fa-map-marked-alt text-teal-400"></i> CDSP Map — Philippines
+            </h2>
+            <p class="text-slate-400 text-xs mt-1">Nationwide PSGC Data | Barangays are properly grouped under their respective municipalities</p>
+            <div class="flex gap-1 text-[10px] bg-slate-800 p-1.5 rounded-full flex-wrap mt-2">
+                <span class="px-2 py-0.5 rounded-full bg-blue-800 text-blue-200"><i class="fas fa-map-marker-alt"></i> Province</span>
+                <span class="px-2 py-0.5 rounded-full bg-purple-800 text-purple-200"><i class="fas fa-map-marker-alt"></i> Municipality/City</span>
+                <span class="px-2 py-0.5 rounded-full bg-orange-800 text-orange-200"><i class="fas fa-location-dot"></i> Barangays (grouped by municipality)</span>
+                <span class="px-2 py-0.5 rounded-full bg-green-800 text-green-200"><i class="fas fa-check-circle"></i> CDSP Events (Bohol)</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-3 mb-4">
+            <div class="flex-1 bg-black rounded-xl shadow-lg border border-slate-700 overflow-hidden relative">
+                <div class="absolute z-[1000] top-4 left-4 bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-lg p-1.5 flex gap-1">
+                    <button id="satelliteBtn" onclick="setMapView('satellite')" class="map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-blue-600 text-white shadow-md">
+                        <i class="fas fa-satellite"></i> Satellite
+                    </button>
+                    <button id="streetBtn" onclick="setMapView('street')" class="map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-slate-700 text-slate-300">
+                        <i class="fas fa-map"></i> Street Map
+                    </button>
+                </div>
+                
+                <div class="absolute z-[1000] top-4 right-4 bg-slate-800/90 backdrop-blur-sm rounded-lg shadow-lg p-2 flex flex-col gap-1.5 min-w-[200px]">
+                    <select id="regionSelect" onchange="onRegionChange()" class="region-selector">
+                        <option value="">🌏 Select Region</option>
+                    </select>
+                    <select id="provinceSelect" onchange="onProvinceChange()" class="province-selector">
+                        <option value="">📍 Select Province</option>
+                    </select>
+                    <select id="municipalitySelect" onchange="onMunicipalityChange()" class="muni-selector">
+                        <option value="">🏛️ Select Municipality</option>
+                    </select>
+                </div>
+                
+                <div id="phMap" class="map-wrapper w-full"></div>
+                <div class="bg-black/80 text-[10px] text-slate-400 px-3 py-1 border-t border-slate-800 flex justify-between">
+                    <span><i class="fas fa-check-circle text-green-500"></i> Barangays are grouped under their respective municipality</span>
+                    <span><i class="fas fa-database text-teal-400"></i> PSGC Official Data</span>
+                </div>
+            </div>
+
+            <div class="w-full lg:w-64 flex flex-row lg:flex-col gap-3">
+                <div class="bg-slate-800 rounded-xl shadow-lg p-3">
+                    <h4 class="text-xs font-bold text-slate-200 mb-2">Legend & Toggles</h4>
+                    <div class="space-y-2">
+                        <div id="toggleProvinces" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-300" onclick="toggleProvinceLayer()">
+                            <div class="w-4 h-4 rounded-full bg-blue-600"></div><span>Provinces</span><span class="text-[9px] ml-auto" id="provinceCount">0</span>
+                        </div>
+                        <div id="toggleMunicipalities" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-300" onclick="toggleMunicipalityLayer()">
+                            <div class="w-4 h-4 rounded-full bg-purple-600"></div><span>Municipalities</span><span class="text-[9px] ml-auto" id="muniCount">0</span>
+                        </div>
+                        <div id="toggleBarangays" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-300" onclick="toggleBarangayLayer()">
+                            <div class="w-3 h-3 rounded-full bg-orange-500"></div><span>Barangays</span><span class="text-[9px] ml-auto" id="barangayCount">0</span>
+                        </div>
+                        <div class="border-t border-slate-700 my-1"></div>
+                        <div id="toggleComplete" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-300" onclick="toggleEventLayer('complete')">
+                            <div class="w-3.5 h-3.5 rounded-full bg-green-500"></div><span>Complete Events</span><span class="text-[9px] ml-auto" id="completeBadge">0</span>
+                        </div>
+                        <div id="toggleIncomplete" class="legend-toggle active flex items-center gap-2 text-[11px] text-slate-300" onclick="toggleEventLayer('incomplete')">
+                            <div class="w-3.5 h-3.5 rounded-full bg-amber-500"></div><span>Incomplete Events</span><span class="text-[9px] ml-auto" id="incompleteBadge">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3">
+            <div class="bg-slate-800 rounded-xl p-3 text-center"><div class="text-xl font-bold text-teal-400" id="statTotalEvents">0</div><p class="text-[10px] uppercase">Total Events</p></div>
+            <div class="bg-slate-800 rounded-xl p-3 text-center"><div class="text-xl font-bold text-blue-400" id="statTotalStudents">0</div><p class="text-[10px] uppercase">Students</p></div>
+            <div class="bg-slate-800 rounded-xl p-3 text-center"><div class="text-xl font-bold text-green-400" id="statComplete">0</div><p class="text-[10px] uppercase">Completed</p></div>
+            <div class="bg-slate-800 rounded-xl p-3 text-center"><div class="text-xl font-bold text-amber-400" id="statIncomplete">0</div><p class="text-[10px] uppercase">Pending</p></div>
+        </div>
+
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+        const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let map, currentTileLayer;
+        let completeEventsLayer, incompleteEventsLayer;
+        let provincePinsLayer, municipalityPinsLayer, barangayPinsLayer;
+        let allEvents = [];
+        
+        let allProvinces = [], allMunicipalities = [];
+        let currentMunicipalities = [], currentBarangays = [];
+        let selectedProvinceCode = null;
+        let barangaysCache = new Map();
+        
+        // Store coordinates
+        let provinceCoords = new Map();
+        let municipalityCoords = new Map();
+        
+        let showComplete = true, showIncomplete = true;
+        let showProvinces = true, showMunicipalities = true, showBarangays = true;
+
+        const PH_CENTER = [12.8797, 121.7740];
+
+        const tileLayers = {
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri', maxZoom: 19
+            }),
+            street: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OSM & CartoDB', maxZoom: 19
+            })
+        };
+
+        async function fetchProvinces() {
+            try {
+                const res = await fetch('https://psgc.gitlab.io/api/provinces.json');
+                if (!res.ok) throw new Error();
+                allProvinces = await res.json();
+                document.getElementById('provinceCount').textContent = allProvinces.length;
+                generateProvinceCoords();
+                populateRegionDropdown();
+                return allProvinces;
+            } catch (err) { console.error(err); return []; }
+        }
+
+        async function fetchAllMunicipalities() {
+            try {
+                const res = await fetch('https://psgc.gitlab.io/api/cities-municipalities.json');
+                if (!res.ok) throw new Error();
+                allMunicipalities = await res.json();
+                generateMunicipalityCoords();
+                return allMunicipalities;
+            } catch (err) { console.error(err); return []; }
+        }
+
+        async function fetchBarangays(provinceCode) {
+            if (barangaysCache.has(provinceCode)) return barangaysCache.get(provinceCode);
+            try {
+                const res = await fetch(`https://psgc.gitlab.io/api/provinces/${provinceCode}/barangays.json`);
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                barangaysCache.set(provinceCode, data);
+                return data;
+            } catch (err) { console.error(err); return []; }
+        }
+
+        function generateProvinceCoords() {
+            const regionCenters = {
+                '010000000': [16.5, 121.0], '020000000': [17.5, 121.8], '030000000': [15.0, 121.0],
+                '040000000': [14.0, 121.5], '050000000': [13.5, 123.5], '060000000': [11.0, 122.5],
+                '070000000': [10.5, 124.0], '080000000': [11.5, 125.0], '090000000': [7.5, 122.5],
+                '100000000': [8.5, 124.8], '110000000': [7.0, 125.5], '120000000': [6.5, 124.5],
+                '130000000': [9.0, 125.5], '140000000': [17.0, 121.0], '150000000': [7.0, 124.0],
+                '160000000': [9.0, 125.5], '170000000': [13.0, 121.0]
+            };
+            for (const prov of allProvinces) {
+                const center = regionCenters[prov.regionCode] || PH_CENTER;
+                const angle = (parseInt(prov.code.slice(0,4)) * 37) % 360;
+                const radius = 1.2;
+                provinceCoords.set(prov.code, [center[0] + Math.cos(angle * Math.PI/180) * radius, center[1] + Math.sin(angle * Math.PI/180) * radius]);
+            }
+        }
+
+        function generateMunicipalityCoords() {
+            for (const mun of allMunicipalities) {
+                const provCoords = provinceCoords.get(mun.provinceCode) || PH_CENTER;
+                const munisInProvince = allMunicipalities.filter(m => m.provinceCode === mun.provinceCode);
+                const idx = munisInProvince.findIndex(m => m.code === mun.code);
+                const angle = (idx * 137.5) * Math.PI / 180;
+                const radius = 0.25 + (idx / Math.max(munisInProvince.length, 1)) * 0.2;
+                municipalityCoords.set(mun.code, [provCoords[0] + Math.cos(angle) * radius, provCoords[1] + Math.sin(angle) * radius]);
+            }
+        }
+
+        function populateRegionDropdown() {
+            const regionSelect = document.getElementById('regionSelect');
+            const regions = [...new Set(allProvinces.map(p => p.regionCode))].sort();
+            regions.forEach(rc => {
+                let name = '';
+                switch(rc) {
+                    case '010000000': name = 'Region I (Ilocos)'; break;
+                    case '020000000': name = 'Region II (Cagayan Valley)'; break;
+                    case '030000000': name = 'Region III (Central Luzon)'; break;
+                    case '040000000': name = 'Region IV-A (CALABARZON)'; break;
+                    case '170000000': name = 'Region IV-B (MIMAROPA)'; break;
+                    case '050000000': name = 'Region V (Bicol)'; break;
+                    case '060000000': name = 'Region VI (Western Visayas)'; break;
+                    case '070000000': name = 'Region VII (Central Visayas)'; break;
+                    case '080000000': name = 'Region VIII (Eastern Visayas)'; break;
+                    case '090000000': name = 'Region IX (Zamboanga Peninsula)'; break;
+                    case '100000000': name = 'Region X (Northern Mindanao)'; break;
+                    case '110000000': name = 'Region XI (Davao)'; break;
+                    case '120000000': name = 'Region XII (SOCCSKSARGEN)'; break;
+                    case '130000000': name = 'Region XIII (Caraga)'; break;
+                    case '140000000': name = 'CAR'; break;
+                    case '150000000': name = 'BARMM'; break;
+                    default: name = rc;
+                }
+                const opt = document.createElement('option');
+                opt.value = rc;
+                opt.textContent = name;
+                regionSelect.appendChild(opt);
+            });
+        }
+
+        window.onRegionChange = async function() {
+            const regionCode = document.getElementById('regionSelect').value;
+            const provSelect = document.getElementById('provinceSelect');
+            provSelect.innerHTML = '<option value="">📍 Select Province</option>';
+            document.getElementById('municipalitySelect').innerHTML = '<option value="">🏛️ Select Municipality</option>';
+            if (!regionCode) return;
+            const filtered = allProvinces.filter(p => p.regionCode === regionCode);
+            filtered.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.code;
+                opt.textContent = p.name;
+                provSelect.appendChild(opt);
+            });
+        };
+
+        window.onProvinceChange = async function() {
+            const provinceCode = document.getElementById('provinceSelect').value;
+            const muniSelect = document.getElementById('municipalitySelect');
+            muniSelect.innerHTML = '<option value="">🏛️ Select Municipality</option>';
+            if (!provinceCode) return;
+            
+            selectedProvinceCode = provinceCode;
+            currentMunicipalities = allMunicipalities.filter(m => m.provinceCode === provinceCode);
+            currentBarangays = await fetchBarangays(provinceCode);
+            
+            document.getElementById('muniCount').textContent = currentMunicipalities.length;
+            document.getElementById('barangayCount').textContent = currentBarangays.length;
+            
+            currentMunicipalities.forEach(mun => {
+                const opt = document.createElement('option');
+                opt.value = mun.code;
+                opt.textContent = mun.name;
+                muniSelect.appendChild(opt);
+            });
+            
+            drawProvincePins();
+            drawMunicipalityPins();
+            drawBarangayPins();
+            
+            const provCoords = provinceCoords.get(provinceCode);
+            if (provCoords) map.flyTo(provCoords, 7, { duration: 1 });
+        };
+
+        window.onMunicipalityChange = function() {
+            const munCode = document.getElementById('municipalitySelect').value;
+            if (!munCode) return;
+            const coords = municipalityCoords.get(munCode);
+            if (coords) map.flyTo(coords, 11, { duration: 1 });
+        };
+
+        function drawProvincePins() {
+            provincePinsLayer.clearLayers();
+            if (!selectedProvinceCode) return;
+            const province = allProvinces.find(p => p.code === selectedProvinceCode);
+            const coords = provinceCoords.get(selectedProvinceCode);
+            if (!province || !coords) return;
+            const icon = L.divIcon({ html: `<div class="province-pin"><i class="fas fa-map-marker-alt"></i></div>`, iconSize: [28,28], iconAnchor: [14,23], popupAnchor: [0,-21] });
+            const marker = L.marker(coords, { icon }).bindPopup(`<b style="color:#3b82f6;">🏞️ ${escapeHtml(province.name)}</b><br>${currentMunicipalities.length} municipalities<br>${currentBarangays.length} barangays`);
+            marker.addTo(provincePinsLayer);
+        }
+
+        function drawMunicipalityPins() {
+            municipalityPinsLayer.clearLayers();
+            if (!selectedProvinceCode) return;
+            for (const mun of currentMunicipalities) {
+                const coords = municipalityCoords.get(mun.code);
+                if (!coords) continue;
+                const icon = L.divIcon({ html: `<div class="municipality-pin"><i class="fas fa-map-marker-alt"></i></div>`, iconSize: [26,26], iconAnchor: [13,21], popupAnchor: [0,-19] });
+                const displayName = mun.name === 'City of Tagbilaran' ? 'Tagbilaran City' : mun.name;
+                const marker = L.marker(coords, { icon }).bindPopup(`<b style="color:#7B2D8E;">🏛️ ${escapeHtml(displayName)}</b><br>${mun.isCity ? 'City' : 'Municipality'}<br>PSGC: ${mun.code}`);
+                marker.addTo(municipalityPinsLayer);
+            }
+        }
+
+        // IMPORTANT: Barangays are grouped under their specific municipality - not scattered across province!
+        function drawBarangayPins() {
+            barangayPinsLayer.clearLayers();
+            if (!selectedProvinceCode || currentBarangays.length === 0) return;
+            
+            // Group barangays by municipality code
+            const barangaysByMun = new Map();
+            for (const brgy of currentBarangays) {
+                if (!barangaysByMun.has(brgy.municipalityCode)) {
+                    barangaysByMun.set(brgy.municipalityCode, []);
+                }
+                barangaysByMun.get(brgy.municipalityCode).push(brgy);
+            }
+            
+            // For each municipality, place its barangays around its center
+            for (const [munCode, barangays] of barangaysByMun) {
+                const mun = allMunicipalities.find(m => m.code === munCode);
+                if (!mun) continue;
+                
+                const center = municipalityCoords.get(munCode);
+                if (!center) continue;
+                
+                const displayName = mun.name === 'City of Tagbilaran' ? 'Tagbilaran City' : mun.name;
+                const maxToShow = Math.min(barangays.length, 60); // Limit for performance
+                
+                for (let i = 0; i < maxToShow; i++) {
+                    const brgy = barangays[i];
+                    // Use golden angle for even circular distribution around municipality center
+                    const goldenAngle = i * 137.5 * Math.PI / 180;
+                    // Radius increases with index, creating a nice cluster around the center
+                    const radius = 0.008 + (i / maxToShow) * 0.014;
+                    const lat = center[0] + Math.cos(goldenAngle) * radius;
+                    const lng = center[1] + Math.sin(goldenAngle) * radius;
+                    
+                    const icon = L.divIcon({ html: `<div class="barangay-pin"></div>`, iconSize: [8,8], iconAnchor: [4,4], popupAnchor: [0, -6] });
+                    const marker = L.marker([lat, lng], { icon }).bindPopup(`
+                        <b style="color:#f97316;">📍 ${escapeHtml(brgy.name)}</b><br>
+                        ${escapeHtml(displayName)}<br>
+                        <small>PSGC: ${brgy.code}</small>
+                    `);
+                    marker.addTo(barangayPinsLayer);
+                }
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+        }
+
+        function updateStats() {
+            document.getElementById('statTotalEvents').textContent = allEvents.length;
+            const total = allEvents.reduce((s, e) => s + (parseInt(e.total_students) || 0), 0);
+            document.getElementById('statTotalStudents').textContent = total;
+            const comp = allEvents.filter(e => e.status === 'Complete').length;
+            const inc = allEvents.filter(e => e.status === 'Incomplete').length;
+            document.getElementById('statComplete').textContent = comp;
+            document.getElementById('statIncomplete').textContent = inc;
+            document.getElementById('completeBadge').textContent = comp;
+            document.getElementById('incompleteBadge').textContent = inc;
+        }
+
+        function initMap() {
+            map = L.map('phMap').setView(PH_CENTER, 6);
+            currentTileLayer = tileLayers.satellite;
+            currentTileLayer.addTo(map);
+
+            completeEventsLayer = L.layerGroup().addTo(map);
+            incompleteEventsLayer = L.layerGroup().addTo(map);
+            provincePinsLayer = L.layerGroup().addTo(map);
+            municipalityPinsLayer = L.layerGroup().addTo(map);
+            barangayPinsLayer = L.layerGroup().addTo(map);
+
+            Promise.all([fetchProvinces(), fetchAllMunicipalities()]).then(() => loadEvents());
+        }
+
+        window.setMapView = function(type) {
+            if (currentTileLayer) map.removeLayer(currentTileLayer);
+            currentTileLayer = tileLayers[type];
+            currentTileLayer.addTo(map);
+            const sat = document.getElementById('satelliteBtn');
+            const str = document.getElementById('streetBtn');
+            if (type === 'satellite') {
+                sat.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-blue-600 text-white shadow-md';
+                str.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-slate-700 text-slate-300';
+            } else {
+                str.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-blue-600 text-white shadow-md';
+                sat.className = 'map-toggle-btn px-3 py-1.5 text-[11px] font-medium rounded-md bg-slate-700 text-slate-300';
+            }
+        };
+
+        async function loadEvents() {
+            try {
+                const { data } = await sb.from('cdsp_events').select('*');
+                allEvents = data || [];
+                drawEvents();
+                updateStats();
+            } catch(e) { console.error(e); }
+        }
+
+        function drawEvents() {
+            completeEventsLayer.clearLayers();
+            incompleteEventsLayer.clearLayers();
+            const bohol = [9.83, 124.22];
+            allEvents.forEach((e, i) => {
+                const angle = i * 137.5 * Math.PI / 180;
+                const pos = [bohol[0] + Math.cos(angle) * 0.035, bohol[1] + Math.sin(angle) * 0.035];
+                const isComp = e.status === 'Complete';
+                const icon = L.divIcon({ html: `<div class="${isComp ? 'event-complete-pin' : 'event-incomplete-pin'}"><i class="fas ${isComp ? 'fa-check' : 'fa-exclamation'}" style="color:white; font-size:11px;"></i></div>`, iconSize: [24,24], iconAnchor: [12,12] });
+                L.marker(pos, { icon }).bindPopup(`<b>${isComp ? '✅' : '⚠️'} ${escapeHtml(e.event_name)}</b><br>📍 ${e.municipality}, Bohol<br>👥 ${e.total_students || 0} students`).addTo(isComp ? completeEventsLayer : incompleteEventsLayer);
+            });
+        }
+
+        window.toggleEventLayer = function(type) {
+            const layer = type === 'complete' ? completeEventsLayer : incompleteEventsLayer;
+            const show = type === 'complete' ? (showComplete = !showComplete) : (showIncomplete = !showIncomplete);
+            const toggle = document.getElementById(type === 'complete' ? 'toggleComplete' : 'toggleIncomplete');
+            if (show) { map.addLayer(layer); toggle.classList.add('active'); toggle.classList.remove('inactive'); }
+            else { map.removeLayer(layer); toggle.classList.add('inactive'); toggle.classList.remove('active'); }
+        };
+        window.toggleProvinceLayer = function() {
+            showProvinces = !showProvinces;
+            const t = document.getElementById('toggleProvinces');
+            if (showProvinces) { map.addLayer(provincePinsLayer); t.classList.add('active'); t.classList.remove('inactive'); }
+            else { map.removeLayer(provincePinsLayer); t.classList.add('inactive'); t.classList.remove('active'); }
+        };
+        window.toggleMunicipalityLayer = function() {
+            showMunicipalities = !showMunicipalities;
+            const t = document.getElementById('toggleMunicipalities');
+            if (showMunicipalities) { map.addLayer(municipalityPinsLayer); t.classList.add('active'); t.classList.remove('inactive'); }
+            else { map.removeLayer(municipalityPinsLayer); t.classList.add('inactive'); t.classList.remove('active'); }
+        };
+        window.toggleBarangayLayer = function() {
+            showBarangays = !showBarangays;
+            const t = document.getElementById('toggleBarangays');
+            if (showBarangays) { map.addLayer(barangayPinsLayer); t.classList.add('active'); t.classList.remove('inactive'); }
+            else { map.removeLayer(barangayPinsLayer); t.classList.add('inactive'); t.classList.remove('active'); }
+        };
+
+        initMap();
+    });
+    </script>
+</body>
+</html>

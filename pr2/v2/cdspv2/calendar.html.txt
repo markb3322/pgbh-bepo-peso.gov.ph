@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Monthly Events Calendar | CDSP Events Calendar</title>
+    
+    <!-- Tailwind CSS + Font Awesome + Google Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'orange-cdsp': '#f97316',
+                        'orange-dark': '#ea580c',
+                        'teal-cdsp': '#14b8a6',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease both; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-in { animation: modalIn 0.2s ease; }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-in { animation: slideIn 0.25s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        
+        /* Calendar custom styles */
+        .calendar-day {
+            transition: all 0.2s ease;
+            background: white;
+            border-radius: 0.75rem;
+            border: 1px solid #ffe6d5;
+            min-height: 100px;
+            padding: 0.5rem 0.4rem;
+        }
+        .calendar-day:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .calendar-day.other-month {
+            background: #fefcf9;
+            opacity: 0.6;
+        }
+        .calendar-day.today {
+            background: linear-gradient(135deg, #fff1e6, #ffe8db);
+            border: 2px solid #f97316;
+            box-shadow: 0 2px 8px rgba(249,115,22,0.2);
+        }
+        .event-badge {
+            transition: all 0.15s ease;
+            cursor: pointer;
+            background: linear-gradient(105deg, #fff1e6, #ffe8db);
+            border-left: 3px solid #f97316;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #4a2e1e;
+        }
+        .event-badge:hover {
+            transform: translateX(4px);
+            background: #fed7aa !important;
+        }
+        .modal-overlay {
+            transition: all 0.2s ease;
+        }
+        
+        /* Fix for navbar overlap */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        /* Content shift class from navbar */
+        .cdsp-content-shift {
+            margin-left: 200px !important;
+            margin-top: 54px !important;
+            padding: 20px !important;
+            min-height: calc(100vh - 54px);
+            width: calc(100% - 200px) !important;
+        }
+        
+        /* Calendar container */
+        .calendar-page-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* PRINT STYLES - Navbar hidden, proper calendar days */
+        @media print {
+            /* Hide navbar completely */
+            .cdsp-sidebar,
+            .cdsp-topbar,
+            .cdsp-mobile-bar,
+            .no-print,
+            .navbar,
+            #navbar-root,
+            script:not([data-print]),
+            .cdsp-overlay,
+            button,
+            select,
+            .filters-bar,
+            .print-options {
+                display: none !important;
+            }
+            
+            /* Reset body */
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            
+            /* Remove all margins from content */
+            .cdsp-content-shift {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+            }
+            
+            /* Calendar container full width */
+            .calendar-page-container {
+                max-width: 100%;
+                padding: 0;
+                margin: 0;
+            }
+            
+            /* Calendar grid print styles */
+            .grid {
+                display: grid !important;
+                grid-template-columns: repeat(7, 1fr) !important;
+                gap: 4px !important;
+            }
+            
+            .calendar-day {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border: 1px solid #ddd;
+                background: white !important;
+                min-height: 80px;
+            }
+            
+            .event-badge {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+                border: 1px solid #ccc;
+            }
+            
+            .weekday {
+                background: #f0f0f0 !important;
+                print-color-adjust: exact;
+                font-weight: bold;
+            }
+            
+            .calendar-day.today {
+                border: 2px solid #f97316;
+                background: #fff9f0 !important;
+            }
+            
+            /* Page settings */
+            @page {
+                size: landscape;
+                margin: 1cm;
+            }
+            
+            /* Header print styles - NOT CENTERED */
+            .print-header {
+                display: block !important;
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #f97316;
+                text-align: left !important;
+            }
+            
+            .print-header .print-header-icon {
+                font-size: 32px;
+                margin-bottom: 5px;
+            }
+            
+            .print-header .print-header-title {
+                font-size: 20px;
+                font-weight: bold;
+                margin: 5px 0;
+                color: #1e3c4c;
+            }
+            
+            .print-header .print-header-subtitle {
+                font-size: 11px;
+                color: #666;
+                margin-bottom: 5px;
+            }
+            
+            .print-header .print-header-desc {
+                font-size: 10px;
+                color: #888;
+                max-width: 100%;
+                line-height: 1.4;
+            }
+            
+            /* Footer print styles */
+            .print-footer {
+                display: flex !important;
+                justify-content: space-between;
+                margin-top: 20px;
+                padding-top: 10px;
+                border-top: 1px solid #ddd;
+                font-size: 9px;
+                color: #666;
+            }
+        }
+        
+        /* Print header - only visible in print */
+        .print-header {
+            display: none;
+        }
+        
+        .print-footer {
+            display: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .cdsp-content-shift {
+                margin-left: 0 !important;
+                margin-bottom: 58px !important;
+                width: 100% !important;
+                padding: 15px !important;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .calendar-day { min-height: 80px; padding: 0.4rem 0.3rem; }
+            .event-badge { font-size: 0.55rem; white-space: normal; }
+            .weekday { font-size: 0.7rem; padding: 0.5rem 0.2rem; }
+            .day-number { font-size: 0.85rem; }
+        }
+        
+        .day-number {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 0.3rem;
+            color: #1e3c4c;
+        }
+        .calendar-day.other-month .day-number {
+            color: #cbd5e1;
+        }
+        .calendar-day.today .day-number {
+            color: #f97316;
+            font-weight: 800;
+        }
+        
+        .weekday {
+            text-align: center;
+            font-weight: 700;
+            padding: 0.6rem 0.2rem;
+            background: #fff1e6;
+            border-radius: 0.75rem;
+            color: #b45309;
+            font-size: 0.8rem;
+        }
+        
+        .modal-detail-row {
+            display: flex;
+            margin: 0.8rem 0;
+            gap: 0.8rem;
+            font-size: 0.9rem;
+            border-bottom: 1px dashed #f0e2d6;
+            padding-bottom: 0.6rem;
+        }
+        .modal-label {
+            font-weight: 700;
+            min-width: 90px;
+            color: #4b2e1a;
+        }
+        .modal-value {
+            color: #1e3c4c;
+            flex: 1;
+        }
+        
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: translateY(-30px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-modalSlideIn {
+            animation: modalSlideIn 0.2s ease-out;
+        }
+    </style>
+    
+    <script src="navbar.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 font-inter">
+
+<div class="cdsp-content-shift">
+    <div class="calendar-page-container fade-in">
+        
+        <!-- PRINT HEADER - Left aligned, not centered -->
+        <div class="print-header">
+            <div class="print-header-icon">📅</div>
+            <div class="print-header-title">Monthly Event Calendar</div>
+            <div class="print-header-subtitle">Career Development Support Program - Bohol Province</div>
+            <div class="print-header-desc">Track and monitor all CDSP events across Bohol province. This calendar displays events scheduled for each day, helping you visualize program implementation and identify gaps in coverage.</div>
+        </div>
+        
+        <!-- SCREEN HEADER -->
+        <div class="bg-gradient-to-r from-orange-50 to-amber-50 px-6 pt-6 pb-5 border-b border-orange-100 rounded-t-2xl no-print">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-3">
+                <div class="text-4xl sm:text-5xl">📅</div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-slate-800 to-orange-600 bg-clip-text text-transparent">
+                        Monthly Event Calendar
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-500 mt-1">Career Development Support Program - Bohol Province</p>
+                </div>
+            </div>
+            <div class="mt-2 pl-2 border-l-4 border-orange-500">
+                <p class="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-3xl">
+                    Track and monitor all CDSP events across Bohol province. This calendar displays events scheduled for each day, 
+                    helping you visualize program implementation and identify gaps in coverage.
+                </p>
+            </div>
+        </div>
+
+        <!-- FILTER & PRINT TOOLBAR -->
+        <div class="bg-white px-4 sm:px-6 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 no-print">
+            <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center gap-1 sm:gap-2 bg-gray-50 rounded-xl px-2 sm:px-3 py-1.5">
+                    <i class="fas fa-calendar-alt text-orange-500 text-xs sm:text-sm"></i>
+                    <select id="yearFilter" class="bg-transparent border-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer py-1"></select>
+                </div>
+                <div class="flex items-center gap-1 sm:gap-2 bg-gray-50 rounded-xl px-2 sm:px-3 py-1.5">
+                    <i class="fas fa-calendar-month text-orange-500 text-xs sm:text-sm"></i>
+                    <select id="monthFilter" class="bg-transparent border-none text-xs sm:text-sm font-semibold text-slate-700 cursor-pointer py-1"></select>
+                </div>
+                <button id="refreshCalendarBtn" class="bg-teal-500 hover:bg-teal-600 text-white px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-1 sm:gap-2">
+                    <i class="fas fa-sync-alt text-xs"></i> <span class="hidden sm:inline">Refresh</span>
+                </button>
+                <button id="resetTodayBtn" class="border border-orange-500 text-orange-600 hover:bg-orange-50 px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-1 sm:gap-2">
+                    <i class="fas fa-calendar-day text-xs"></i> <span class="hidden sm:inline">Today</span>
+                </button>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2 bg-amber-50 rounded-xl px-2 sm:px-3 py-1.5 border border-amber-200">
+                <i class="fas fa-print text-amber-600 text-xs sm:text-sm"></i>
+                <select id="printPaperSize" class="bg-white border border-gray-200 rounded-lg px-1.5 sm:px-2 py-1 text-xs sm:text-sm">
+                    <option value="A4">A4</option>
+                    <option value="SHORT">Short</option>
+                    <option value="LONG">Long</option>
+                </select>
+                <select id="printOrientation" class="bg-white border border-gray-200 rounded-lg px-1.5 sm:px-2 py-1 text-xs sm:text-sm">
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape" selected>Landscape</option>
+                </select>
+                <select id="printMonthSelect" class="bg-white border border-gray-200 rounded-lg px-1.5 sm:px-2 py-1 text-xs sm:text-sm">
+                    <option value="current">Current</option>
+                </select>
+                <button id="printButton" class="bg-orange-500 hover:bg-orange-600 text-white px-3 sm:px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-2">
+                    <i class="fas fa-print text-xs"></i> <span class="hidden sm:inline">Print</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- CALENDAR GRID -->
+        <div class="p-4 sm:p-6 overflow-x-auto">
+            <div class="grid grid-cols-7 gap-1 sm:gap-2" id="calendarGrid">
+                <!-- Calendar will be rendered here -->
+            </div>
+        </div>
+        
+        <!-- SCREEN FOOTER -->
+        <div class="bg-gray-50 px-4 sm:px-6 py-2 sm:py-3 border-t border-gray-200 flex flex-wrap justify-between items-center text-xs text-gray-500 rounded-b-2xl no-print">
+            <div class="flex items-center gap-1 sm:gap-2">
+                <i class="fas fa-user-circle text-gray-400 text-xs"></i>
+                <span>User ID: <span id="dynamicUserId" class="font-mono font-semibold">CDSP-</span><span id="randomSuffix" class="font-mono font-semibold"></span></span>
+            </div>
+            <div class="flex items-center gap-1 sm:gap-2">
+                <i class="fas fa-calendar-alt text-gray-400 text-xs"></i>
+                <span>Generated: <span id="footerDate" class="font-medium"></span></span>
+            </div>
+        </div>
+        
+        <!-- PRINT FOOTER -->
+        <div class="print-footer">
+            <div>User ID: <span id="printUserId"></span></div>
+            <div>Career Development Support Program - BEPO-PESO</div>
+            <div id="printDate"></div>
+        </div>
+    </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div id="eventModal" class="modal-overlay fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-modalSlideIn">
+        <div class="bg-gradient-to-r from-orange-500 to-orange-600 px-5 sm:px-6 py-3 sm:py-4">
+            <h3 id="modalEventTitle" class="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                <i class="fas fa-calendar-day"></i> Event Details
+            </h3>
+        </div>
+        <div class="p-5 sm:p-6" id="modalDetailsContainer"></div>
+        <div class="px-5 sm:px-6 pb-5 sm:pb-6">
+            <button id="closeModalBtn" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // SUPABASE CONFIGURATION
+    const SUPABASE_URL = 'https://lfmcgktlmdiwddngytkq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbWNna3RsbWRpd2Rkbmd5dGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5MDQ0NTIsImV4cCI6MjA5NTQ4MDQ1Mn0.yRluC6tQAKSfSXsKdDtils5ztk-CLZzjatjOHx1ot2s';
+    
+    let supabaseClient = null;
+    let isSupabaseReady = false;
+    let allEvents = [];
+    let currentDisplayYear = new Date().getFullYear();
+    let currentDisplayMonth = new Date().getMonth();
+    
+    // DOM elements
+    const yearSelect = document.getElementById('yearFilter');
+    const monthSelect = document.getElementById('monthFilter');
+    const resetBtn = document.getElementById('resetTodayBtn');
+    const refreshBtn = document.getElementById('refreshCalendarBtn');
+    const calendarGrid = document.getElementById('calendarGrid');
+    const printBtn = document.getElementById('printButton');
+    const printPaperSize = document.getElementById('printPaperSize');
+    const printOrientation = document.getElementById('printOrientation');
+    const printMonthSelect = document.getElementById('printMonthSelect');
+    const randomSuffixSpan = document.getElementById('randomSuffix');
+    const footerDateSpan = document.getElementById('footerDate');
+    
+    // Modal elements
+    const modalOverlay = document.getElementById('eventModal');
+    const modalEventTitle = document.getElementById('modalEventTitle');
+    const modalDetailsContainer = document.getElementById('modalDetailsContainer');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    
+    function generateUserId() {
+        const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        return `CDSP-${randomNum}`;
+    }
+    
+    function updateFooterDate() {
+        const now = new Date();
+        const formatted = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+        footerDateSpan.textContent = formatted;
+        
+        // Update print footer
+        const printDateEl = document.getElementById('printDate');
+        if (printDateEl) {
+            printDateEl.textContent = `Printed: ${formatted}`;
+        }
+        const printUserIdEl = document.getElementById('printUserId');
+        if (printUserIdEl) {
+            const userIdSpan = document.getElementById('dynamicUserId');
+            printUserIdEl.textContent = userIdSpan ? userIdSpan.innerText : 'CDSP-0000';
+        }
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    function showEventDetails(eventId) {
+        const ev = allEvents.find(e => e.id == eventId);
+        if (!ev) return;
+        modalEventTitle.innerHTML = `<i class="fas fa-calendar-check"></i> ${escapeHtml(ev.event_name) || "Untitled Event"}`;
+        
+        let locationParts = [];
+        if (ev.district) locationParts.push(`District ${ev.district}`);
+        if (ev.municipality) locationParts.push(escapeHtml(ev.municipality));
+        if (ev.barangay) locationParts.push(escapeHtml(ev.barangay));
+        if (ev.school_name) locationParts.push(`🏫 ${escapeHtml(ev.school_name)}`);
+        const locationLine = locationParts.length ? locationParts.join(' • ') : 'Not specified';
+        const eventDateStr = ev.event_date ? new Date(ev.event_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : 'No date';
+        
+        const statusColor = ev.status === 'Complete' ? 'text-green-600 bg-green-50' : 'text-amber-600 bg-amber-50';
+        const statusIcon = ev.status === 'Complete' ? '✅' : '⚠️';
+        
+        const html = `
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-hashtag"></i> Event ID</span>
+                <span class="modal-value font-mono">${ev.id}</span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-calendar-day"></i> Date</span>
+                <span class="modal-value">${escapeHtml(eventDateStr)}</span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-location-dot"></i> Location</span>
+                <span class="modal-value">${escapeHtml(locationLine)}</span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-building"></i> Venue</span>
+                <span class="modal-value">${escapeHtml(ev.venue || 'Not provided')}</span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-users"></i> Students</span>
+                <span class="modal-value font-semibold">${ev.total_students ?? 0}</span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-flag-checkered"></i> Status</span>
+                <span class="modal-value"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColor}">${statusIcon} ${ev.status || 'Incomplete'}</span></span>
+            </div>
+            <div class="modal-detail-row">
+                <span class="modal-label"><i class="fas fa-align-left"></i> Description</span>
+                <span class="modal-value">${escapeHtml(ev.description || '—')}</span>
+            </div>
+        `;
+        modalDetailsContainer.innerHTML = html;
+        modalOverlay.classList.remove('hidden');
+        modalOverlay.classList.add('flex');
+    }
+    
+    function closeModal() { 
+        modalOverlay.classList.add('hidden'); 
+        modalOverlay.classList.remove('flex'); 
+    }
+    
+    async function initSupabase() {
+        try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const { error } = await supabaseClient.from('cdsp_events').select('id', { count: 'exact', head: true });
+            if (!error) isSupabaseReady = true;
+            return true;
+        } catch(e) { 
+            console.warn(e); 
+            loadMockEvents();
+            return false;
+        }
+    }
+    
+    function loadMockEvents() {
+        const yr = new Date().getFullYear();
+        allEvents = [
+            { id: 201, event_name: "Bohol CDSP Summit", district: "1", municipality: "Tagbilaran City", barangay: "Cogon", school_name: "BVHS", event_date: `${yr}-03-15`, venue: "Bohol Cultural Center", total_students: 320, description: "Annual planning", status: "Complete" },
+            { id: 202, event_name: "Youth Leadership Camp", district: "2", municipality: "Ubay", barangay: "San Pascual", school_name: "Ubay NHS", event_date: `${yr}-03-22`, venue: "Municipal Gym", total_students: 180, description: "Leadership training", status: "Incomplete" },
+            { id: 203, event_name: "Coastal Cleanup", district: "3", municipality: "Jagna", barangay: "Can-uba", school_name: "Jagna CES", event_date: `${yr}-04-05`, venue: "Seaside", total_students: 95, description: "Environment awareness", status: "Incomplete" }
+        ];
+        renderCalendar();
+    }
+    
+    async function fetchEventsFromSupabase() {
+        if (!supabaseClient || !isSupabaseReady) return false;
+        try {
+            const { data, error } = await supabaseClient.from('cdsp_events').select('*').order('event_date');
+            if (error) throw error;
+            if (data) { allEvents = data; return true; }
+        } catch(err) { console.error(err); }
+        return false;
+    }
+    
+    function getEventsForYearMonth(year, month) {
+        return allEvents.filter(ev => {
+            if (!ev.event_date) return false;
+            const d = new Date(ev.event_date);
+            return !isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month;
+        });
+    }
+    
+    function renderCalendar() {
+        const year = currentDisplayYear;
+        const month = currentDisplayMonth;
+        const firstDay = new Date(year, month, 1);
+        const startWeekday = firstDay.getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const prevMonthDays = new Date(year, month, 0).getDate();
+        const today = new Date();
+        const isCurrentMonth = (today.getFullYear() === year && today.getMonth() === month);
+        
+        const eventsForMonth = getEventsForYearMonth(year, month);
+        const eventsByDay = {};
+        eventsForMonth.forEach(ev => {
+            const dayNum = new Date(ev.event_date).getDate();
+            if (!eventsByDay[dayNum]) eventsByDay[dayNum] = [];
+            eventsByDay[dayNum].push(ev);
+        });
+        
+        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+            html += `<div class="weekday">${weekdays[i]}</div>`;
+        }
+        
+        let dayCounter = 1;
+        for (let i = 0; i < 42; i++) {
+            let dayNumber = 0;
+            let isOtherMonth = false;
+            let isToday = false;
+            
+            if (i < startWeekday) {
+                // Previous month days
+                let prevDate = prevMonthDays - (startWeekday - i) + 1;
+                dayNumber = prevDate;
+                isOtherMonth = true;
+            } else if (dayCounter <= daysInMonth) {
+                // Current month days
+                dayNumber = dayCounter;
+                isOtherMonth = false;
+                if (isCurrentMonth && dayNumber === today.getDate()) isToday = true;
+                dayCounter++;
+            } else {
+                // Next month days
+                dayNumber = dayCounter - daysInMonth;
+                isOtherMonth = true;
+                dayCounter++;
+            }
+            
+            const eventsToday = (!isOtherMonth && eventsByDay[dayNumber]) ? eventsByDay[dayNumber] : [];
+            let eventsHtml = '';
+            
+            if (eventsToday.length > 0) {
+                eventsHtml = `<div class="space-y-1 mt-1">`;
+                eventsToday.slice(0, 2).forEach(ev => {
+                    let shortTitle = ev.event_name.length > 20 ? ev.event_name.substring(0,18)+'...' : ev.event_name;
+                    let statusIcon = ev.status === 'Complete' ? '✅' : '⚠️';
+                    eventsHtml += `<div class="event-badge" data-event-id="${ev.id}" title="${escapeHtml(ev.event_name)}">
+                        ${statusIcon} <span class="truncate">${escapeHtml(shortTitle)}</span>
+                    </div>`;
+                });
+                if (eventsToday.length > 2) {
+                    eventsHtml += `<div class="text-[9px] sm:text-[10px] text-orange-500 text-center font-semibold">+${eventsToday.length-2} more</div>`;
+                }
+                eventsHtml += `</div>`;
+            }
+            
+            let additionalClass = '';
+            if (isOtherMonth) additionalClass = 'other-month';
+            if (isToday) additionalClass = 'today';
+            
+            html += `<div class="calendar-day ${additionalClass}">
+                        <div class="day-number">${dayNumber}</div>
+                        ${eventsHtml}
+                     </div>`;
+        }
+        calendarGrid.innerHTML = html;
+        
+        document.querySelectorAll('.event-badge[data-event-id]').forEach(el => {
+            el.removeEventListener('click', badgeHandler);
+            el.addEventListener('click', badgeHandler);
+        });
+    }
+    
+    function badgeHandler(e) {
+        e.stopPropagation();
+        const id = parseInt(this.getAttribute('data-event-id'));
+        if (!isNaN(id)) showEventDetails(id);
+    }
+    
+    async function refreshDataAndRender() {
+        if (supabaseClient && isSupabaseReady) {
+            await fetchEventsFromSupabase();
+        }
+        renderCalendar();
+        updatePrintMonthSelector();
+    }
+    
+    function applyFilters() {
+        currentDisplayYear = parseInt(yearSelect.value);
+        currentDisplayMonth = parseInt(monthSelect.value);
+        renderCalendar();
+    }
+    
+    function resetToToday() {
+        const today = new Date();
+        currentDisplayYear = today.getFullYear();
+        currentDisplayMonth = today.getMonth();
+        yearSelect.value = currentDisplayYear;
+        monthSelect.value = currentDisplayMonth;
+        renderCalendar();
+    }
+    
+    function printCalendarWithOptions() {
+        let printYear = currentDisplayYear;
+        let printMonth = currentDisplayMonth;
+        const printMonthChoice = printMonthSelect.value;
+        if (printMonthChoice !== "current") {
+            const [choiceYear, choiceMonth] = printMonthChoice.split('-').map(Number);
+            if (!isNaN(choiceYear) && !isNaN(choiceMonth)) {
+                printYear = choiceYear;
+                printMonth = choiceMonth;
+            }
+        }
+        
+        const originalYear = currentDisplayYear;
+        const originalMonth = currentDisplayMonth;
+        currentDisplayYear = printYear;
+        currentDisplayMonth = printMonth;
+        renderCalendar();
+        
+        const paperSize = printPaperSize.value;
+        const orientation = printOrientation.value;
+        let paperCSS = '';
+        if (paperSize === 'A4') paperCSS = `size: A4 ${orientation};`;
+        else if (paperSize === 'SHORT') paperCSS = `size: 8.5in 11in ${orientation};`;
+        else if (paperSize === 'LONG') paperCSS = `size: 8.5in 13in ${orientation};`;
+        
+        const style = document.createElement('style');
+        style.id = 'printDynamicStyle';
+        style.textContent = `@page { ${paperCSS} margin: 1.2cm; }`;
+        const existingStyle = document.getElementById('printDynamicStyle');
+        if (existingStyle) existingStyle.remove();
+        document.head.appendChild(style);
+        
+        window.print();
+        
+        currentDisplayYear = originalYear;
+        currentDisplayMonth = originalMonth;
+        renderCalendar();
+        style.remove();
+    }
+    
+    function updatePrintMonthSelector() {
+        printMonthSelect.innerHTML = '<option value="current">📌 Current View</option>';
+        const monthsSet = new Set();
+        allEvents.forEach(ev => {
+            if (ev.event_date) {
+                const d = new Date(ev.event_date);
+                if (!isNaN(d.getTime())) {
+                    const key = `${d.getFullYear()}-${d.getMonth()}`;
+                    monthsSet.add(key);
+                }
+            }
+        });
+        const sortedMonths = Array.from(monthsSet).sort();
+        sortedMonths.forEach(monthKey => {
+            const [yearStr, monthStr] = monthKey.split('-');
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr);
+            const monthName = new Date(year, month).toLocaleString('default', { month: 'long' });
+            printMonthSelect.innerHTML += `<option value="${year}-${month}">${monthName} ${year}</option>`;
+        });
+    }
+    
+    function populateYearSelector() {
+        const startYear = new Date().getFullYear() - 2;
+        const endYear = startYear + 6;
+        yearSelect.innerHTML = '';
+        for (let y = startYear; y <= endYear; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y === currentDisplayYear) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
+    }
+    
+    function populateMonthSelector() {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        monthSelect.innerHTML = '';
+        for (let i = 0; i < 12; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = monthNames[i];
+            if (i === currentDisplayMonth) opt.selected = true;
+            monthSelect.appendChild(opt);
+        }
+    }
+    
+    async function initApp() {
+        populateYearSelector();
+        populateMonthSelector();
+        
+        const userId = generateUserId();
+        randomSuffixSpan.innerText = userId.split('-')[1] || "0000";
+        document.getElementById('dynamicUserId').innerHTML = `CDSP-${randomSuffixSpan.innerText}`;
+        updateFooterDate();
+        
+        await initSupabase();
+        if (supabaseClient && isSupabaseReady) {
+            await fetchEventsFromSupabase();
+        } else {
+            if (!allEvents.length) loadMockEvents();
+        }
+        renderCalendar();
+        updatePrintMonthSelector();
+        
+        yearSelect.addEventListener('change', applyFilters);
+        monthSelect.addEventListener('change', applyFilters);
+        resetBtn.addEventListener('click', resetToToday);
+        refreshBtn.addEventListener('click', () => refreshDataAndRender());
+        printBtn.addEventListener('click', printCalendarWithOptions);
+        closeModalBtn.addEventListener('click', closeModal);
+        modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+    }
+    
+    initApp();
+</script>
+
+</body>
+</html>
