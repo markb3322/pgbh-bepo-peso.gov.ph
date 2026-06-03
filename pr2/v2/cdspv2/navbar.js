@@ -1,8 +1,8 @@
 /**
  * navbar.js — BEPO-PESO Admin Navigation System
  * Design: Glassmorphism + Bottom Bar + Warm Amber/Orange
- * Fixed: School name connected via school_id from events table
- * Displays: Profile picture, full name (first_name + last_name), and ID number
+ * Profile: fetches avatar (base64/URL), first_name + last_name on load
+ * Icons: Material-style filled SVG icons
  */
 
 (function () {
@@ -12,13 +12,24 @@
   const SB_URL = 'https://iharcxdakmyxjpqpcbnb.supabase.co';
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloYXJjeGRha215eGpwcXBjYm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0ODc0NDEsImV4cCI6MjA5NDA2MzQ0MX0.5BE8ckW-3g5mJmXyrDWO_cytfI-_JrMaV4LQip7pbvs';
 
+  // ── Material-style filled SVG icons ──────────────────────────────────────
+  const MAT = {
+    home: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>`,
+    map:  `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>`,
+    calendar: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>`,
+    records: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`,
+    schools: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82zM12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>`,
+    reports: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>`,
+    logout: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>`,
+  };
+
   const NAV_ITEMS = [
-    { id: 'nav-home',     href: 'index.html',       label: 'Home',      icon: '🏠' },
-    { id: 'nav-map',      href: 'map.html',         label: 'Map',       icon: '🗺️' },
-    { id: 'nav-calendar', href: 'calendar.html',    label: 'Calendar',  icon: '📅' },
-    { id: 'nav-records',  href: 'list_record.html', label: 'Records',   icon: '📋' },
-    { id: 'nav-schools',  href: 'add_school.html',  label: 'Schools',   icon: '🏫' },
-    { id: 'nav-reports',  href: 'report.html',      label: 'Reports',   icon: '📊' },
+    { id: 'nav-home',     href: 'index.html',       label: 'Home',     icon: MAT.home     },
+    { id: 'nav-map',      href: 'map.html',         label: 'Map',      icon: MAT.map      },
+    { id: 'nav-calendar', href: 'calendar.html',    label: 'Calendar', icon: MAT.calendar },
+    { id: 'nav-records',  href: 'list_record.html', label: 'Records',  icon: MAT.records  },
+    { id: 'nav-schools',  href: 'add_school.html',  label: 'Schools',  icon: MAT.schools  },
+    { id: 'nav-reports',  href: 'report.html',      label: 'Reports',  icon: MAT.reports  },
   ];
 
   const PAGE_MAP = {
@@ -55,6 +66,7 @@
 
   let schoolsData = [];
 
+  // ── CSS ──────────────────────────────────────────────────────────────────
   function ensureStyles() {
     if (document.getElementById(CSS_ID)) return;
     const css = `
@@ -62,37 +74,27 @@
 @import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
 
 :root {
-  --topbar-h:        60px;
-  --bottom-bar-h:    68px;
-
-  /* Amber / Orange palette */
-  --accent:          #f59e0b;
-  --accent-2:        #ea580c;
-  --accent-glow:     rgba(245, 158, 11, 0.35);
-  --accent-dim:      rgba(245, 158, 11, 0.12);
-  --accent-dim2:     rgba(234, 88, 12, 0.10);
-
-  /* Glass surfaces */
-  --glass-bg:        rgba(255, 255, 255, 0.72);
-  --glass-border:    rgba(255, 255, 255, 0.55);
-  --glass-shadow:    0 8px 32px rgba(15, 10, 0, 0.12);
-  --glass-blur:      blur(20px) saturate(180%);
-
-  /* Text */
-  --text:            #1a0f00;
-  --text2:           #5a4a38;
-  --muted:           #a08060;
-
-  /* Background mesh */
-  --page-bg:         #fff8f0;
-
-  --font:            'Outfit', system-ui, sans-serif;
-  --mono:            'JetBrains Mono', monospace;
-
-  --radius-pill:     100px;
-  --radius-lg:       20px;
-  --radius-md:       14px;
-  --radius-sm:       10px;
+  --topbar-h:      60px;
+  --bottom-bar-h:  68px;
+  --accent:        #f59e0b;
+  --accent-2:      #ea580c;
+  --accent-glow:   rgba(245,158,11,0.35);
+  --accent-dim:    rgba(245,158,11,0.12);
+  --accent-dim2:   rgba(234,88,12,0.10);
+  --glass-bg:      rgba(255,255,255,0.72);
+  --glass-border:  rgba(255,255,255,0.55);
+  --glass-shadow:  0 8px 32px rgba(15,10,0,0.12);
+  --glass-blur:    blur(20px) saturate(180%);
+  --text:          #1a0f00;
+  --text2:         #5a4a38;
+  --muted:         #a08060;
+  --page-bg:       #fff8f0;
+  --font:          'Outfit', system-ui, sans-serif;
+  --mono:          'JetBrains Mono', monospace;
+  --radius-pill:   100px;
+  --radius-lg:     20px;
+  --radius-md:     14px;
+  --radius-sm:     10px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,7 +107,7 @@ body {
   min-height: 100vh;
 }
 
-/* ===================== TOPBAR ===================== */
+/* ── TOPBAR ── */
 .cdsp-topbar {
   position: fixed; top: 0; left: 0; right: 0;
   height: var(--topbar-h);
@@ -115,18 +117,13 @@ body {
   border-bottom: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px;
-  z-index: 1000;
-  font-family: var(--font);
+  padding: 0 20px; z-index: 1000; font-family: var(--font);
 }
-
 .cdsp-topbar-left  { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .cdsp-topbar-center{ flex: 1; display: flex; align-items: center; justify-content: center; }
 .cdsp-topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
-/* Logo */
 .cdsp-logo-area { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-
 .cdsp-logo-mark {
   width: 36px; height: 36px; border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -142,37 +139,28 @@ body {
 .cdsp-brand-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
 .cdsp-brand-sub   { font-size: 9.5px; color: var(--muted); font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; }
 
-/* Datetime */
 .cdsp-datetime {
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--mono);
-  font-size: 11.5px; color: var(--text2);
+  font-family: var(--mono); font-size: 11.5px; color: var(--text2);
   white-space: nowrap; user-select: none;
-  background: var(--accent-dim);
-  border: 1px solid rgba(245,158,11,0.2);
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
+  background: var(--accent-dim); border: 1px solid rgba(245,158,11,0.2);
+  padding: 6px 14px; border-radius: var(--radius-pill);
 }
 .cdsp-datetime .dt-time   { font-weight: 600; color: var(--text); font-size: 12.5px; }
 .cdsp-datetime .dt-divider{ width: 1px; height: 14px; background: rgba(245,158,11,0.3); }
 .cdsp-datetime .dt-date   { color: var(--muted); font-size: 10.5px; }
 
-/* Bell */
 .cdsp-reminder {
   position: relative; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
   backdrop-filter: var(--glass-blur);
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+  transition: all 0.25s ease; box-shadow: 0 2px 10px rgba(0,0,0,0.07);
 }
 .cdsp-reminder:hover {
-  background: var(--accent-dim);
-  border-color: rgba(245,158,11,0.4);
-  box-shadow: 0 0 0 4px var(--accent-glow);
-  transform: scale(1.08);
+  background: var(--accent-dim); border-color: rgba(245,158,11,0.4);
+  box-shadow: 0 0 0 4px var(--accent-glow); transform: scale(1.08);
 }
 .cdsp-reminder i { font-size: 17px; color: var(--text2); }
 .cdsp-reminder-badge {
@@ -182,29 +170,20 @@ body {
   min-width: 17px; height: 17px; border-radius: 20px;
   display: flex; align-items: center; justify-content: center;
   padding: 0 4px; font-family: var(--mono);
-  border: 2px solid white;
-  box-shadow: 0 2px 6px var(--accent-glow);
+  border: 2px solid white; box-shadow: 0 2px 6px var(--accent-glow);
 }
 
-/* Profile chip */
 .cdsp-profile-chip {
   display: flex; align-items: center; gap: 10px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: var(--glass-blur);
-  border-radius: var(--radius-pill);
-  padding: 4px 14px 4px 4px;
-  cursor: pointer;
-  max-width: 220px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
-  transition: all 0.25s ease;
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur); border-radius: var(--radius-pill);
+  padding: 4px 14px 4px 4px; cursor: pointer; max-width: 220px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07); transition: all 0.25s ease;
 }
 .cdsp-profile-chip:hover {
-  background: var(--accent-dim);
-  border-color: rgba(245,158,11,0.4);
+  background: var(--accent-dim); border-color: rgba(245,158,11,0.4);
   box-shadow: 0 4px 18px var(--accent-glow);
 }
-
 .cdsp-avatar {
   width: 32px; height: 32px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -214,7 +193,6 @@ body {
   box-shadow: 0 0 0 3px var(--accent-dim), 0 0 0 5px rgba(245,158,11,0.1);
 }
 .cdsp-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-
 .cdsp-profile-info { overflow: hidden; }
 .cdsp-profile-name {
   font-size: 12.5px; font-weight: 600; color: var(--text);
@@ -223,7 +201,7 @@ body {
 }
 .cdsp-profile-role { font-size: 10px; color: var(--muted); font-weight: 500; white-space: nowrap; }
 
-/* ===================== BOTTOM BAR (all screen sizes) ===================== */
+/* ── BOTTOM BAR ── */
 .cdsp-bottom-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
   height: var(--bottom-bar-h);
@@ -232,84 +210,72 @@ body {
   -webkit-backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--glass-border);
   box-shadow: 0 -8px 32px rgba(15,10,0,0.10);
-  z-index: 1000;
-  font-family: var(--font);
+  z-index: 1000; font-family: var(--font);
 }
-
 .cdsp-bottom-nav {
   display: flex; align-items: center; justify-content: space-around;
   height: 100%; list-style: none; padding: 0 4px;
 }
-
 .cdsp-bottom-nav li { flex: 1; }
-
 .cdsp-bottom-nav a {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; padding: 8px 4px;
-  text-decoration: none;
-  color: var(--muted);
+  gap: 3px; padding: 6px 4px;
+  text-decoration: none; color: var(--muted);
   font-size: 10px; font-weight: 600;
   border-radius: var(--radius-md);
-  transition: all 0.22s ease;
-  position: relative;
+  transition: all 0.22s ease; position: relative;
 }
-.cdsp-bottom-nav a .mob-icon {
-  font-size: 21px;
+
+/* Material icon wrapper — filled pill on active */
+.cdsp-bottom-nav a .mat-icon-wrap {
+  width: 36px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  transition: all 0.22s ease;
+}
+.cdsp-bottom-nav a .mat-icon-wrap svg {
+  width: 22px; height: 22px;
   transition: transform 0.22s ease;
 }
-.cdsp-bottom-nav a:hover {
-  color: var(--text2);
+.cdsp-bottom-nav a:hover .mat-icon-wrap {
   background: var(--accent-dim2);
 }
-.cdsp-bottom-nav a:hover .mob-icon { transform: translateY(-2px); }
+.cdsp-bottom-nav a:hover .mat-icon-wrap svg { transform: translateY(-2px) scale(1.08); }
 
-.cdsp-bottom-nav a.active {
-  color: var(--accent-2);
+/* Active state — filled pill */
+.cdsp-bottom-nav a.active { color: var(--accent-2); }
+.cdsp-bottom-nav a.active .mat-icon-wrap {
+  background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,88,12,0.15));
+  box-shadow: 0 2px 10px rgba(245,158,11,0.2);
 }
-.cdsp-bottom-nav a.active .mob-icon { transform: translateY(-3px); }
-
-/* Active pill dot indicator */
-.cdsp-bottom-nav a.active::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  left: 50%; transform: translateX(-50%);
-  width: 18px; height: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  border-radius: 4px;
-  box-shadow: 0 1px 6px var(--accent-glow);
-}
+.cdsp-bottom-nav a.active .mat-icon-wrap svg { transform: translateY(-1px); }
 
 .cdsp-bottom-nav a.danger { color: rgba(239,68,68,0.55); }
-.cdsp-bottom-nav a.danger:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+.cdsp-bottom-nav a.danger:hover { color: #ef4444; }
+.cdsp-bottom-nav a.danger:hover .mat-icon-wrap { background: rgba(239,68,68,0.08); }
 
-/* ===================== CONTENT SHIFT ===================== */
+/* ── CONTENT SHIFT ── */
 .cdsp-content-shift {
   margin-top: var(--topbar-h);
   margin-bottom: var(--bottom-bar-h);
   min-height: calc(100vh - var(--topbar-h) - var(--bottom-bar-h));
 }
 
-/* ===================== REMINDER MODAL ===================== */
+/* ── REMINDER MODAL ── */
 .cdsp-reminder-modal {
   position: fixed; top: 70px; right: 20px;
   width: 380px; max-height: 500px;
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(15,10,0,0.18), 0 0 0 1px rgba(255,255,255,0.5) inset;
-  z-index: 1001;
-  display: none; flex-direction: column; overflow: hidden;
+  z-index: 1001; display: none; flex-direction: column; overflow: hidden;
 }
 .cdsp-reminder-modal.active { display: flex; animation: glassSlideDown 0.28s cubic-bezier(0.22,1,0.36,1); }
-
 @keyframes glassSlideDown {
   from { opacity: 0; transform: translateY(-12px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .cdsp-reminder-header {
   padding: 14px 16px;
   background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.08));
@@ -324,43 +290,33 @@ body {
   border-radius: 6px; transition: all 0.2s;
 }
 .cdsp-reminder-header-actions button:hover { color: var(--accent-2); background: var(--accent-dim); }
-
 .cdsp-reminder-list { max-height: 420px; overflow-y: auto; padding: 10px; }
 .cdsp-reminder-list::-webkit-scrollbar { width: 4px; }
 .cdsp-reminder-list::-webkit-scrollbar-track { background: transparent; }
 .cdsp-reminder-list::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.3); border-radius: 4px; }
-
 .cdsp-reminder-item {
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.22s ease;
-  border-left: 3px solid var(--accent);
+  padding: 12px 14px; border-radius: var(--radius-md); margin-bottom: 8px;
+  cursor: pointer; transition: all 0.22s ease;
   background: rgba(255,255,255,0.5);
   border: 1px solid rgba(255,255,255,0.6);
   border-left: 3px solid var(--accent);
   backdrop-filter: blur(8px);
 }
 .cdsp-reminder-item:hover {
-  background: rgba(255,248,240,0.85);
-  transform: translateX(-3px);
+  background: rgba(255,248,240,0.85); transform: translateX(-3px);
   box-shadow: 4px 0 18px rgba(245,158,11,0.15);
 }
 .cdsp-reminder-item .event-name  { font-weight: 700; font-size: 12.5px; color: var(--text); margin-bottom: 5px; }
 .cdsp-reminder-item .event-details{ font-size: 10px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
 .cdsp-reminder-item .event-details span { display: inline-flex; align-items: center; gap: 3px; }
-
 .cdsp-reminder-empty { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 13px; }
-
 .cdsp-reminder-footer {
-  padding: 10px 16px;
-  border-top: 1px solid rgba(245,158,11,0.15);
+  padding: 10px 16px; border-top: 1px solid rgba(245,158,11,0.15);
   font-size: 10px; color: var(--muted); text-align: center;
   background: rgba(255,248,240,0.5);
 }
 
-/* ===================== EVENT MODAL ===================== */
+/* ── EVENT MODAL ── */
 .cdsp-event-modal {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(15,10,0,0.5);
@@ -368,12 +324,9 @@ body {
   z-index: 2000; display: none; align-items: center; justify-content: center;
 }
 .cdsp-event-modal.active { display: flex; }
-
 .cdsp-modal-container {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--glass-bg); backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border);
   width: 90%; max-width: 750px; max-height: 87vh;
   border-radius: 28px; overflow: hidden;
   box-shadow: 0 30px 80px rgba(15,10,0,0.25), 0 0 0 1px rgba(255,255,255,0.55) inset;
@@ -383,7 +336,6 @@ body {
   from { opacity: 0; transform: translateY(28px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .cdsp-modal-header {
   padding: 18px 22px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -394,47 +346,24 @@ body {
   background: rgba(255,255,255,0.2); border: none;
   width: 32px; height: 32px; border-radius: 50%;
   cursor: pointer; color: white; font-size: 18px;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
 }
 .cdsp-modal-close:hover { background: rgba(255,255,255,0.35); transform: rotate(90deg); }
-
-.cdsp-modal-body {
-  padding: 22px;
-  max-height: calc(87vh - 70px);
-  overflow-y: auto;
-}
-
+.cdsp-modal-body { padding: 22px; max-height: calc(87vh - 70px); overflow-y: auto; }
 .cdsp-event-map {
-  height: 260px; border-radius: var(--radius-lg);
-  margin-bottom: 20px; overflow: hidden;
-  border: 1px solid var(--glass-border);
+  height: 260px; border-radius: var(--radius-lg); margin-bottom: 20px;
+  overflow: hidden; border: 1px solid var(--glass-border);
   box-shadow: 0 4px 20px rgba(15,10,0,0.1);
 }
-
 .cdsp-event-info {
-  background: rgba(255,255,255,0.5);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 6px 0;
+  background: rgba(255,255,255,0.5); backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 6px 0;
 }
-
-.cdsp-info-row {
-  display: flex; padding: 12px 18px;
-  border-bottom: 1px solid rgba(245,158,11,0.1);
-}
+.cdsp-info-row { display: flex; padding: 12px 18px; border-bottom: 1px solid rgba(245,158,11,0.1); }
 .cdsp-info-row:last-child { border-bottom: none; }
-
-.cdsp-info-label {
-  width: 110px; font-weight: 700;
-  font-size: 10px; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.7px;
-  padding-top: 1px;
-}
+.cdsp-info-label { width: 110px; font-weight: 700; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; padding-top: 1px; }
 .cdsp-info-value { flex: 1; font-size: 13px; color: var(--text); font-weight: 500; }
 .cdsp-info-description { font-size: 12px; color: var(--text2); line-height: 1.55; margin-top: 3px; }
-
 .cdsp-status-badge {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 12px; border-radius: var(--radius-pill);
@@ -442,35 +371,24 @@ body {
 }
 .cdsp-status-incomplete {
   background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.12));
-  color: var(--accent-2);
-  border: 1px solid rgba(245,158,11,0.3);
+  color: var(--accent-2); border: 1px solid rgba(245,158,11,0.3);
 }
 
 /* Orange map pin */
 .orange-pin-marker {
-  background: var(--accent);
-  width: 40px; height: 40px;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  position: relative;
-  box-shadow: 0 4px 16px rgba(245,158,11,0.5);
-  border: 3px solid white;
-  cursor: pointer;
-  animation: pinPulse 1.8s infinite;
+  background: var(--accent); width: 40px; height: 40px;
+  border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  position: relative; box-shadow: 0 4px 16px rgba(245,158,11,0.5);
+  border: 3px solid white; cursor: pointer; animation: pinPulse 1.8s infinite;
 }
 @keyframes pinPulse {
   0%   { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
   70%  { box-shadow: 0 0 0 14px rgba(245,158,11,0); }
   100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
 }
-.orange-pin-marker i {
-  position: absolute;
-  transform: rotate(45deg);
-  left: 11px; top: 10px;
-  font-size: 16px; color: white;
-}
+.orange-pin-marker i { position: absolute; transform: rotate(45deg); left: 11px; top: 10px; font-size: 16px; color: white; }
 
-/* ===================== RESPONSIVE ===================== */
+/* ── RESPONSIVE ── */
 @media (max-width: 700px) {
   .cdsp-brand-sub    { display: none; }
   .cdsp-datetime     { display: none; }
@@ -482,7 +400,7 @@ body {
   .cdsp-modal-container { width: 96%; margin: 0; }
   .cdsp-event-map    { height: 190px; }
   .cdsp-bottom-nav a { font-size: 9px; }
-  .cdsp-bottom-nav a .mob-icon { font-size: 19px; }
+  .cdsp-bottom-nav a .mat-icon-wrap svg { width: 20px; height: 20px; }
 }
 `;
     const style = document.createElement('style');
@@ -491,6 +409,7 @@ body {
     document.head.appendChild(style);
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
   function getInitials(name) {
     if (!name) return 'US';
     const parts = name.trim().split(/\s+/);
@@ -498,16 +417,22 @@ body {
     return parts[0].substring(0, 2).toUpperCase();
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Build HTML ───────────────────────────────────────────────────────────
   function buildNavHTML(userName, userRole, avatarSrc) {
     const initials = getInitials(userName);
 
     const chipAvatar = avatarSrc
-      ? `<div class="cdsp-avatar"><img src="${avatarSrc}" alt="Profile" onerror="this.parentElement.textContent='${initials}'" /></div>`
+      ? `<div class="cdsp-avatar"><img src="${avatarSrc}" alt="Profile" onerror="this.style.display='none';this.parentElement.innerHTML='${initials}'" /></div>`
       : `<div class="cdsp-avatar">${initials}</div>`;
 
     const bottomNavHTML = NAV_ITEMS.map(item => `
       <li><a href="${item.href}" id="mob-${item.id}">
-        <span class="mob-icon">${item.icon}</span>
+        <span class="mat-icon-wrap">${item.icon}</span>
         <span>${item.label}</span>
       </a></li>`).join('');
 
@@ -543,14 +468,13 @@ body {
     <div class="cdsp-profile-chip" id="cdsp-profile-chip" title="User Profile">
       ${chipAvatar}
       <div class="cdsp-profile-info">
-        <div class="cdsp-profile-name">${userName}</div>
-        <div class="cdsp-profile-role">${userRole}</div>
+        <div class="cdsp-profile-name" id="cdsp-profile-name">${userName}</div>
+        <div class="cdsp-profile-role" id="cdsp-profile-role">${userRole}</div>
       </div>
     </div>
   </div>
 </header>
 
-<!-- Reminder dropdown -->
 <div class="cdsp-reminder-modal" id="cdsp-reminder-modal">
   <div class="cdsp-reminder-header">
     <span><i class="fas fa-exclamation-triangle" style="color:var(--accent);margin-right:6px;"></i>Incomplete Events</span>
@@ -567,7 +491,6 @@ body {
   </div>
 </div>
 
-<!-- Event detail modal -->
 <div class="cdsp-event-modal" id="cdsp-event-modal">
   <div class="cdsp-modal-container">
     <div class="cdsp-modal-header">
@@ -592,33 +515,33 @@ body {
   </div>
 </div>
 
-<!-- Bottom navigation bar (all screens) -->
 <nav class="cdsp-bottom-bar" id="cdsp-bottom-bar" aria-label="Main navigation">
   <ul class="cdsp-bottom-nav">
     ${bottomNavHTML}
     <li><a href="logout.html" id="mob-nav-logout" class="danger">
-      <span class="mob-icon">🚪</span>
+      <span class="mat-icon-wrap">${MAT.logout}</span>
       <span>Logout</span>
     </a></li>
   </ul>
 </nav>`;
   }
 
+  // ── Active page ───────────────────────────────────────────────────────────
   function markActive() {
     const page = window.location.pathname.split('/').pop().toLowerCase() || 'index.html';
     const id = PAGE_MAP[page];
     if (id) {
-      const mobEl = document.getElementById('mob-' + id);
-      if (mobEl) mobEl.classList.add('active');
+      const el = document.getElementById('mob-' + id);
+      if (el) el.classList.add('active');
     }
   }
 
   function shiftContent() {
     const selectors = [
-      '.app-shell', '#app-shell', '.main-content', '#main-content',
-      '.main', '#main', 'main', '.content', '#content',
-      '.page-content', '#page-content', '.register-wrapper', '.edit-wrapper',
-      '.view-wrapper', '.dashboard', '.page',
+      '.app-shell','#app-shell','.main-content','#main-content',
+      '.main','#main','main','.content','#content',
+      '.page-content','#page-content','.register-wrapper','.edit-wrapper',
+      '.view-wrapper','.dashboard','.page',
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
@@ -626,69 +549,84 @@ body {
     }
   }
 
+  // ── Clock ────────────────────────────────────────────────────────────────
   function updateDateTime() {
     const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const phNow = new Date(utc + 3600000 * 8);
-
-    let hours = phNow.getHours();
-    const minutes = String(phNow.getMinutes()).padStart(2, '0');
-    const seconds = String(phNow.getSeconds()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    const timeStr = `${String(hours).padStart(2, '0')}:${minutes}:${seconds} ${ampm}`;
-
+    const phNow = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + 3600000 * 8);
+    let h = phNow.getHours();
+    const m = String(phNow.getMinutes()).padStart(2,'0');
+    const s = String(phNow.getSeconds()).padStart(2,'0');
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
     const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    const dateStr = `${days[phNow.getDay()]}, ${months[phNow.getMonth()]} ${phNow.getDate()}, ${phNow.getFullYear()}`;
-
     const timeEl = document.getElementById('dt-time');
     const dateEl = document.getElementById('dt-date');
-    if (timeEl) timeEl.textContent = timeStr;
-    if (dateEl) dateEl.textContent = dateStr;
+    if (timeEl) timeEl.textContent = `${String(h).padStart(2,'0')}:${m}:${s} ${ap}`;
+    if (dateEl) dateEl.textContent = `${days[phNow.getDay()]}, ${months[phNow.getMonth()]} ${phNow.getDate()}, ${phNow.getFullYear()}`;
   }
 
+  // ── Profile fetch ─────────────────────────────────────────────────────────
+  // Fetches from members table: first_name, last_name, middle_initial,
+  // profile_url (base64 data URL or public URL), id_number
   async function fetchProfile() {
     const userId = sessionStorage.getItem('bepo_user_id');
     if (!userId) return null;
     try {
       const res = await fetch(
-        `${SB_URL}/rest/v1/members?id=eq.${userId}&select=first_name,last_name,profile_url,role,id_number`,
+        `${SB_URL}/rest/v1/members?id=eq.${userId}&select=first_name,last_name,middle_initial,profile_url,role,id_number`,
         { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' } }
       );
       if (!res.ok) return null;
       const data = await res.json();
-      return data && data.length > 0 ? data[0] : null;
+      return (data && data.length > 0) ? data[0] : null;
     } catch (e) {
       console.warn('CDSP Navbar: profile fetch failed', e);
       return null;
     }
   }
 
-  function updateProfileUI(profile) {
+  // Applies fetched profile to the chip — called once on load
+  function applyProfileToChip(profile) {
     if (!profile) return;
-    const fullname = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-    const name  = fullname || sessionStorage.getItem('bepo_user_name') || 'Member';
-    const role  = profile.id_number || profile.role || sessionStorage.getItem('bepo_id_number') || 'CDSP';
-    const avatar = profile.profile_url || null;
-    const initials = getInitials(name);
 
+    // Build full name: First [M.] Last
+    const mi = profile.middle_initial ? ` ${profile.middle_initial}.` : '';
+    const fullName = `${profile.first_name || ''}${mi} ${profile.last_name || ''}`.trim() || 'Member';
+    const idNum    = profile.id_number || profile.role || 'CDSP';
+    const avatarSrc = profile.profile_url || null;
+    const initials  = getInitials(fullName);
+
+    // Update name & role text
+    const nameEl = document.getElementById('cdsp-profile-name');
+    const roleEl = document.getElementById('cdsp-profile-role');
+    if (nameEl) nameEl.textContent = fullName;
+    if (roleEl) roleEl.textContent = idNum;
+
+    // Update avatar — supports base64 data URLs and regular URLs
     const chip = document.getElementById('cdsp-profile-chip');
     if (chip) {
-      const nameEl   = chip.querySelector('.cdsp-profile-name');
-      const roleEl   = chip.querySelector('.cdsp-profile-role');
       const avatarEl = chip.querySelector('.cdsp-avatar');
-      if (nameEl)   nameEl.textContent = name;
-      if (roleEl)   roleEl.textContent = role;
       if (avatarEl) {
-        avatarEl.innerHTML = avatar
-          ? `<img src="${avatar}" alt="Profile" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initials}'" />`
-          : initials;
+        if (avatarSrc) {
+          avatarEl.innerHTML = `<img
+            src="${avatarSrc}"
+            alt="${escapeHtml(fullName)}"
+            style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
+            onerror="this.style.display='none';this.parentElement.textContent='${initials}'"
+          />`;
+        } else {
+          avatarEl.textContent = initials;
+        }
       }
     }
-    sessionStorage.setItem('bepo_user_name', name);
+
+    // Persist to session for other pages
+    sessionStorage.setItem('bepo_user_name', fullName);
+    sessionStorage.setItem('bepo_id_number',  idNum);
   }
 
+  // ── Schools ───────────────────────────────────────────────────────────────
   async function fetchSchools() {
     try {
       const sb = window.supabase.createClient(
@@ -707,10 +645,11 @@ body {
 
   function getSchoolName(schoolId) {
     if (!schoolId) return 'No school assigned';
-    const school = schoolsData.find(s => s.id == schoolId);
-    return school ? school.school_name : 'School not found';
+    const s = schoolsData.find(x => x.id == schoolId);
+    return s ? s.school_name : 'School not found';
   }
 
+  // ── Incomplete events ────────────────────────────────────────────────────
   async function fetchIncompleteEvents() {
     try {
       const sb = window.supabase.createClient(
@@ -719,8 +658,8 @@ body {
       );
       const { data, error } = await sb
         .from('cdsp_events')
-        .select('id, event_name, municipality, barangay, status, district, school_id, description, event_date, venue, total_students')
-        .eq('status', 'Incomplete')
+        .select('id,event_name,municipality,barangay,status,district,school_id,description,event_date,venue,total_students')
+        .eq('status','Incomplete')
         .order('event_date', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -732,16 +671,16 @@ body {
 
   function updateReminderBadge(count) {
     const badge = document.getElementById('reminder-badge');
-    if (badge) {
-      if (count > 0) { badge.textContent = count > 99 ? '99+' : count; badge.style.display = 'flex'; }
-      else badge.style.display = 'none';
-    }
+    if (!badge) return;
+    if (count > 0) { badge.textContent = count > 99 ? '99+' : count; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
   }
 
+  // ── Map pin ───────────────────────────────────────────────────────────────
   function createOrangePinIcon() {
     return L.divIcon({
       html: `<div class="orange-pin-marker"><i class="fas fa-exclamation-triangle"></i></div>`,
-      iconSize: [40, 40], iconAnchor: [20, 38], popupAnchor: [0, -38],
+      iconSize: [40,40], iconAnchor: [20,38], popupAnchor: [0,-38],
       className: 'custom-orange-pin'
     });
   }
@@ -749,180 +688,158 @@ body {
   let currentMap = null;
 
   function initEventMapWithOrangePin(lat, lng, municipality, eventName) {
-    const mapContainer = document.getElementById('event-map');
-    if (!mapContainer) return;
+    const mc = document.getElementById('event-map');
+    if (!mc) return;
     if (currentMap) { currentMap.remove(); currentMap = null; }
     currentMap = L.map('event-map').setView([lat, lng], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OSM &copy; CartoDB', subdomains: 'abcd', maxZoom: 19, minZoom: 3
     }).addTo(currentMap);
-    const orangeIcon = createOrangePinIcon();
-    const marker = L.marker([lat, lng], { icon: orangeIcon }).addTo(currentMap);
+    const marker = L.marker([lat, lng], { icon: createOrangePinIcon() }).addTo(currentMap);
     marker.bindPopup(`<b style="color:var(--accent);">⚠ Incomplete Event</b><br><b>Event:</b> ${escapeHtml(eventName)}<br><b>Location:</b> ${escapeHtml(municipality)}`).openPopup();
   }
 
-  function formatDate(dateString) {
-    if (!dateString) return 'No date set';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  function formatDate(ds) {
+    if (!ds) return 'No date set';
+    return new Date(ds).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
   }
 
-  function showEventDetails(event) {
-    const displayMuni = event.municipality === 'City of Tagbilaran' ? 'Tagbilaran City' : event.municipality;
-    const schoolName  = getSchoolName(event.school_id);
-    const coords = MUNICIPALITY_COORDS[displayMuni] || MUNICIPALITY_COORDS[event.municipality] || [9.83, 124.22];
-
-    document.getElementById('modal-event-name').textContent        = event.event_name;
-    document.getElementById('modal-event-school').textContent      = schoolName;
+  function showEventDetails(ev) {
+    const displayMuni = ev.municipality === 'City of Tagbilaran' ? 'Tagbilaran City' : ev.municipality;
+    const coords = MUNICIPALITY_COORDS[displayMuni] || MUNICIPALITY_COORDS[ev.municipality] || [9.83, 124.22];
+    document.getElementById('modal-event-name').textContent        = ev.event_name;
+    document.getElementById('modal-event-school').textContent      = getSchoolName(ev.school_id);
     document.getElementById('modal-event-muni').textContent        = displayMuni;
-    document.getElementById('modal-event-barangay').textContent    = event.barangay || 'N/A';
-    document.getElementById('modal-event-district').textContent    = event.district || 'N/A';
-    document.getElementById('modal-event-date').textContent        = formatDate(event.event_date);
-    document.getElementById('modal-event-venue').textContent       = event.venue || 'No venue specified';
-    document.getElementById('modal-event-students').textContent    = event.total_students || 0;
+    document.getElementById('modal-event-barangay').textContent    = ev.barangay || 'N/A';
+    document.getElementById('modal-event-district').textContent    = ev.district || 'N/A';
+    document.getElementById('modal-event-date').textContent        = formatDate(ev.event_date);
+    document.getElementById('modal-event-venue').textContent       = ev.venue || 'No venue specified';
+    document.getElementById('modal-event-students').textContent    = ev.total_students || 0;
     document.getElementById('modal-event-status').innerHTML        = '⚠ Incomplete';
-    document.getElementById('modal-event-description').textContent = event.description || 'No description provided';
-
+    document.getElementById('modal-event-description').textContent = ev.description || 'No description provided';
     document.getElementById('cdsp-event-modal').classList.add('active');
-    setTimeout(() => initEventMapWithOrangePin(coords[0], coords[1], displayMuni, event.event_name), 120);
+    setTimeout(() => initEventMapWithOrangePin(coords[0], coords[1], displayMuni, ev.event_name), 120);
   }
 
   function showReminderModal(events) {
-    const modal         = document.getElementById('cdsp-reminder-modal');
-    const listContainer = document.getElementById('reminder-list');
-    if (!modal || !listContainer) return;
+    const modal = document.getElementById('cdsp-reminder-modal');
+    const list  = document.getElementById('reminder-list');
+    if (!modal || !list) return;
 
-    if (!events || events.length === 0) {
-      listContainer.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-check-circle" style="color:var(--accent);"></i> No incomplete events!</div>';
+    if (!events || !events.length) {
+      list.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-check-circle" style="color:var(--accent);"></i> No incomplete events!</div>';
     } else {
       const grouped = {};
       events.forEach(ev => {
-        let muni = ev.municipality === 'City of Tagbilaran' ? 'Tagbilaran City' : ev.municipality;
-        if (!grouped[muni]) grouped[muni] = [];
-        grouped[muni].push(ev);
+        const muni = ev.municipality === 'City of Tagbilaran' ? 'Tagbilaran City' : ev.municipality;
+        (grouped[muni] = grouped[muni] || []).push(ev);
       });
-
       let html = '';
-      for (const [muni, muniEvents] of Object.entries(grouped)) {
+      for (const [muni, evs] of Object.entries(grouped)) {
         html += `<div style="margin-bottom:16px;">
           <div style="font-weight:800;font-size:11.5px;color:var(--accent-2);padding:7px 10px;background:linear-gradient(135deg,rgba(245,158,11,0.13),rgba(234,88,12,0.08));border-radius:10px;margin-bottom:6px;display:flex;align-items:center;gap:8px;border:1px solid rgba(245,158,11,0.2);">
             <i class="fas fa-city"></i> ${escapeHtml(muni)}
-            <span style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:white;padding:2px 9px;border-radius:20px;font-size:10px;margin-left:auto;">${muniEvents.length}</span>
+            <span style="background:linear-gradient(135deg,var(--accent),var(--accent-2));color:white;padding:2px 9px;border-radius:20px;font-size:10px;margin-left:auto;">${evs.length}</span>
           </div>`;
-        muniEvents.forEach(ev => {
-          const schoolName = getSchoolName(ev.school_id);
-          html += `
-            <div class="cdsp-reminder-item"
-              data-event-id="${ev.id}"
-              data-event-name="${escapeHtml(ev.event_name)}"
-              data-event-muni="${escapeHtml(muni)}"
-              data-event-barangay="${escapeHtml(ev.barangay || 'N/A')}"
-              data-event-district="${ev.district || 'N/A'}"
-              data-event-school-id="${ev.school_id || ''}"
-              data-event-date="${ev.event_date || ''}"
-              data-event-venue="${escapeHtml(ev.venue || '')}"
-              data-event-students="${ev.total_students || 0}"
-              data-event-description="${escapeHtml(ev.description || 'No description')}">
-              <div class="event-name"><i class="fas fa-calendar-alt" style="font-size:10px;margin-right:5px;color:var(--accent);"></i>${escapeHtml(ev.event_name)}</div>
-              <div class="event-details">
-                <span><i class="fas fa-school"></i> ${escapeHtml(schoolName)}</span>
-                <span><i class="fas fa-location-dot"></i> ${escapeHtml(ev.barangay || 'N/A')}</span>
-                <span><i class="fas fa-users"></i> ${ev.total_students || 0}</span>
-                <span><i class="fas fa-calendar"></i> ${formatDate(ev.event_date)}</span>
-              </div>
-            </div>`;
+        evs.forEach(ev => {
+          const sn = getSchoolName(ev.school_id);
+          html += `<div class="cdsp-reminder-item"
+            data-event-name="${escapeHtml(ev.event_name)}"
+            data-event-muni="${escapeHtml(muni)}"
+            data-event-barangay="${escapeHtml(ev.barangay||'N/A')}"
+            data-event-district="${ev.district||'N/A'}"
+            data-event-school-id="${ev.school_id||''}"
+            data-event-date="${ev.event_date||''}"
+            data-event-venue="${escapeHtml(ev.venue||'')}"
+            data-event-students="${ev.total_students||0}"
+            data-event-description="${escapeHtml(ev.description||'No description')}">
+            <div class="event-name"><i class="fas fa-calendar-alt" style="font-size:10px;margin-right:5px;color:var(--accent);"></i>${escapeHtml(ev.event_name)}</div>
+            <div class="event-details">
+              <span><i class="fas fa-school"></i> ${escapeHtml(sn)}</span>
+              <span><i class="fas fa-location-dot"></i> ${escapeHtml(ev.barangay||'N/A')}</span>
+              <span><i class="fas fa-users"></i> ${ev.total_students||0}</span>
+              <span><i class="fas fa-calendar"></i> ${formatDate(ev.event_date)}</span>
+            </div>
+          </div>`;
         });
-        html += `</div>`;
+        html += '</div>';
       }
-      listContainer.innerHTML = html;
-
-      document.querySelectorAll('.cdsp-reminder-item').forEach(item => {
+      list.innerHTML = html;
+      list.querySelectorAll('.cdsp-reminder-item').forEach(item => {
         item.addEventListener('click', () => {
           showEventDetails({
-            event_name:    item.dataset.eventName,
-            municipality:  item.dataset.eventMuni,
-            barangay:      item.dataset.eventBarangay,
-            district:      item.dataset.eventDistrict,
-            school_id:     item.dataset.eventSchoolId || null,
-            description:   item.dataset.eventDescription,
-            event_date:    item.dataset.eventDate,
-            venue:         item.dataset.eventVenue,
-            total_students:item.dataset.eventStudents,
-            status:        'Incomplete'
+            event_name:     item.dataset.eventName,
+            municipality:   item.dataset.eventMuni,
+            barangay:       item.dataset.eventBarangay,
+            district:       item.dataset.eventDistrict,
+            school_id:      item.dataset.eventSchoolId || null,
+            description:    item.dataset.eventDescription,
+            event_date:     item.dataset.eventDate,
+            venue:          item.dataset.eventVenue,
+            total_students: item.dataset.eventStudents,
+            status:         'Incomplete'
           });
           modal.classList.remove('active');
         });
       });
     }
-
     modal.classList.toggle('active');
   }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
   async function refreshReminder() {
-    const listContainer = document.getElementById('reminder-list');
-    if (listContainer) listContainer.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-spinner fa-pulse"></i> Refreshing…</div>';
-    const newEvents = await fetchIncompleteEvents();
-    window._incompleteEvents = newEvents;
-    updateReminderBadge(newEvents.length);
-    if (document.getElementById('cdsp-reminder-modal').classList.contains('active')) showReminderModal(newEvents);
+    const list = document.getElementById('reminder-list');
+    if (list) list.innerHTML = '<div class="cdsp-reminder-empty"><i class="fas fa-spinner fa-pulse"></i> Refreshing…</div>';
+    const evs = await fetchIncompleteEvents();
+    window._incompleteEvents = evs;
+    updateReminderBadge(evs.length);
+    if (document.getElementById('cdsp-reminder-modal').classList.contains('active')) showReminderModal(evs);
   }
 
   async function setupReminder() {
     const reminderBtn = document.getElementById('cdsp-reminder');
-    const refreshBtn  = document.getElementById('refresh-reminder');
-    const closeBtn    = document.getElementById('close-reminder');
     if (!reminderBtn) return;
 
     await fetchSchools();
-    const incompleteEvents = await fetchIncompleteEvents();
-    updateReminderBadge(incompleteEvents.length);
-    window._incompleteEvents = incompleteEvents;
+    const evs = await fetchIncompleteEvents();
+    updateReminderBadge(evs.length);
+    window._incompleteEvents = evs;
 
     reminderBtn.addEventListener('click', () => showReminderModal(window._incompleteEvents));
-
-    refreshBtn?.addEventListener('click', e => { e.stopPropagation(); refreshReminder(); });
-    closeBtn?.addEventListener('click',   e => { e.stopPropagation(); document.getElementById('cdsp-reminder-modal').classList.remove('active'); });
+    document.getElementById('refresh-reminder')?.addEventListener('click', e => { e.stopPropagation(); refreshReminder(); });
+    document.getElementById('close-reminder')?.addEventListener('click',   e => { e.stopPropagation(); document.getElementById('cdsp-reminder-modal').classList.remove('active'); });
 
     document.addEventListener('click', e => {
-      const reminderModal = document.getElementById('cdsp-reminder-modal');
-      const eventModal    = document.getElementById('cdsp-event-modal');
-      const reminder      = document.getElementById('cdsp-reminder');
-
-      if (reminderModal?.classList.contains('active')) {
-        if (!reminderModal.contains(e.target) && !reminder?.contains(e.target)) reminderModal.classList.remove('active');
-      }
-      if (eventModal?.classList.contains('active')) {
-        if (e.target === eventModal || e.target.classList?.contains('cdsp-modal-close')) {
-          eventModal.classList.remove('active');
-          if (currentMap) { currentMap.remove(); currentMap = null; }
-        }
+      const rm = document.getElementById('cdsp-reminder-modal');
+      const em = document.getElementById('cdsp-event-modal');
+      if (rm?.classList.contains('active') && !rm.contains(e.target) && !reminderBtn.contains(e.target)) rm.classList.remove('active');
+      if (em?.classList.contains('active') && (e.target === em || e.target.classList?.contains('cdsp-modal-close'))) {
+        em.classList.remove('active');
+        if (currentMap) { currentMap.remove(); currentMap = null; }
       }
     });
 
     setInterval(async () => {
-      const newEvents = await fetchIncompleteEvents();
-      window._incompleteEvents = newEvents;
-      updateReminderBadge(newEvents.length);
+      const ne = await fetchIncompleteEvents();
+      window._incompleteEvents = ne;
+      updateReminderBadge(ne.length);
     }, 30000);
   }
 
+  // ── Main render ───────────────────────────────────────────────────────────
   window.renderCDSPNavbar = async function () {
     ensureStyles();
     if (document.getElementById('cdsp-bottom-bar')) return;
 
+    // Load Leaflet if not present
     if (typeof L === 'undefined') {
-      const leafletScript = document.createElement('script');
-      leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      leafletScript.onload = () => console.log('Leaflet loaded');
-      document.head.appendChild(leafletScript);
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      document.head.appendChild(s);
     }
 
-    const sessionName = sessionStorage.getItem('bepo_user_name') || 'Member';
-    const sessionRole = sessionStorage.getItem('bepo_id_number') || 'CDSP';
+    // Use session values as initial placeholders while profile loads
+    const sessionName = sessionStorage.getItem('bepo_user_name') || 'Loading…';
+    const sessionRole = sessionStorage.getItem('bepo_id_number') || '';
 
     const tmp = document.createElement('div');
     tmp.innerHTML = buildNavHTML(sessionName, sessionRole, null);
@@ -933,8 +850,10 @@ body {
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
+    // Fetch and apply real profile — overwrites placeholder immediately
     const profile = await fetchProfile();
-    if (profile) updateProfileUI(profile);
+    applyProfileToChip(profile);
+
     await setupReminder();
   };
 
