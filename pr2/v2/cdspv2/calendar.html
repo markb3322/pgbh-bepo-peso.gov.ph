@@ -452,8 +452,10 @@
             .weekday-header { background: #f4f4f4; color: #333; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .day-number { color: #1f2937; }
             .event-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .print-header { display: block !important; padding: 0 0 10px; margin-bottom: 14px; border-bottom: 2px solid #0d9488; }
-            .print-footer { display: flex !important; justify-content: space-between; margin-top: 14px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9px; color: #666; }
+            .print-header { display: block !important; text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #0d9488; }
+            .print-header h2 { font-size: 20px; margin-bottom: 5px; color: #0d9488; }
+            .print-header p { font-size: 11px; color: #666; }
+            .print-footer { display: flex !important; justify-content: space-between; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9px; color: #666; }
             @page { size: landscape; margin: 1cm; }
         }
 
@@ -483,10 +485,8 @@
 
         <!-- PRINT HEADER -->
         <div class="print-header">
-            <div style="font-size:18px;font-weight:bold;color:#0d9488;display:flex;align-items:center;gap:8px;">
-                <i class="fas fa-calendar-alt"></i> Monthly Event Calendar
-            </div>
-            <div style="font-size:11px;color:#555;margin-top:3px;">Career Development Support Program — Bohol Province</div>
+            <h2>📅 <span id="printMonthName">Monthly</span> Event Calendar</h2>
+            <p>Career Development Support Program — Bohol Province</p>
         </div>
 
         <!-- PAGE HEADER -->
@@ -536,7 +536,7 @@
                     <option value="landscape" selected>Landscape</option>
                 </select>
                 <select id="printMonthSelect">
-                    <option value="current">Current</option>
+                    <option value="current">Current View</option>
                 </select>
                 <button id="printButton" class="btn btn-warm">
                     <i class="fas fa-print"></i><span class="hide-xs">Print</span>
@@ -601,6 +601,9 @@
     const modalOverlay       = document.getElementById('eventModal');
     const modalEventTitle    = document.getElementById('modalEventTitle');
     const modalDetails       = document.getElementById('modalDetailsContainer');
+    const printMonthNameSpan = document.getElementById('printMonthName');
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     /* ── helpers ── */
     function escapeHtml(s) {
@@ -677,9 +680,9 @@
     function loadMockEvents() {
         const yr = new Date().getFullYear();
         allEvents = [
-            { id:201, event_name:"Bohol CDSP Summit",    district:"1", municipality:"Tagbilaran City", barangay:"Cogon",      school_name:"BVHS",     event_date:`${yr}-03-15`, venue:"Bohol Cultural Center", total_students:320, description:"Annual planning",      status:"Complete"   },
-            { id:202, event_name:"Youth Leadership Camp", district:"2", municipality:"Ubay",           barangay:"San Pascual", school_name:"Ubay NHS",  event_date:`${yr}-03-22`, venue:"Municipal Gym",        total_students:180, description:"Leadership training", status:"Incomplete" },
-            { id:203, event_name:"Coastal Cleanup",       district:"3", municipality:"Jagna",          barangay:"Can-uba",    school_name:"Jagna CES", event_date:`${yr}-04-05`, venue:"Seaside",              total_students:95,  description:"Environment awareness",status:"Incomplete" }
+            { id:201, event_name:"Bohol CDSP Summit",    district:"1", municipality:"Tagbilaran City", barangay:"Cogon",      school_name:"BVHS",     event_date:`${yr}-01-15`, venue:"Bohol Cultural Center", total_students:320, description:"Annual planning",      status:"Complete"   },
+            { id:202, event_name:"Youth Leadership Camp", district:"2", municipality:"Ubay",           barangay:"San Pascual", school_name:"Ubay NHS",  event_date:`${yr}-02-22`, venue:"Municipal Gym",        total_students:180, description:"Leadership training", status:"Incomplete" },
+            { id:203, event_name:"Coastal Cleanup",       district:"3", municipality:"Jagna",          barangay:"Can-uba",    school_name:"Jagna CES", event_date:`${yr}-03-05`, venue:"Seaside",              total_students:95,  description:"Environment awareness",status:"Incomplete" }
         ];
         renderCalendar();
     }
@@ -772,9 +775,8 @@
     }
 
     function populateMonths() {
-        const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         monthSelect.innerHTML = '';
-        names.forEach((n,i) => {
+        monthNames.forEach((n,i) => {
             const o = document.createElement('option');
             o.value = i; o.textContent = n;
             if (i === currentDisplayMonth) o.selected = true;
@@ -792,7 +794,7 @@
             const k = `${d.getFullYear()}-${d.getMonth()}`;
             if (!seen.has(k)) {
                 seen.add(k);
-                const label = new Date(d.getFullYear(), d.getMonth()).toLocaleString('default',{month:'long'}) + ' ' + d.getFullYear();
+                const label = monthNames[d.getMonth()] + ' ' + d.getFullYear();
                 printMonthSelect.innerHTML += `<option value="${k}">${label}</option>`;
             }
         });
@@ -801,11 +803,23 @@
     /* ── print ── */
     function doPrint() {
         let py = currentDisplayYear, pm = currentDisplayMonth;
+        let selectedMonthName = monthNames[pm];
         const v = printMonthSelect.value;
+        
         if (v !== 'current') {
             const [y,m] = v.split('-').map(Number);
-            if (!isNaN(y) && !isNaN(m)) { py = y; pm = m; }
+            if (!isNaN(y) && !isNaN(m)) { 
+                py = y; 
+                pm = m;
+                selectedMonthName = monthNames[m];
+            }
         }
+        
+        // Update print header with month name
+        if (printMonthNameSpan) {
+            printMonthNameSpan.textContent = selectedMonthName;
+        }
+        
         const origY = currentDisplayYear, origM = currentDisplayMonth;
         currentDisplayYear = py; currentDisplayMonth = pm;
         renderCalendar();
